@@ -4,7 +4,6 @@
 ## 📋 Kanban Board
 
 ### 🚀 Backlog
-- [ ] `TASK-001` [Architect]: Define Domain Layer (PainPoint, AnatomicalRegion, ClinicalTriageReport models, Repository interfaces, Result wrapper).
 - [ ] `TASK-002` [Data & Logic Engineer]: Implement Gemini AI Triage Service & Repository with structured JSON response parsing & fallback resilience.
 - [ ] `TASK-003` [Data & Logic Engineer]: Implement PainRecordRepository for storing active pain points and assessment results.
 - [ ] `TASK-004` [UI Engineer]: Implement App Navigation (NavHost with Dashboard, 3D PainMap, and AI Triage Report routes).
@@ -16,7 +15,7 @@
 ---
 
 ### ⏳ In Progress
-*(Ready for triage & active execution)*
+*(None currently active — awaiting ticket triage)*
 
 ---
 
@@ -32,4 +31,5 @@
 - [x] `INIT-004` Verify debug build and successful installation on physical Pixel 10 test device.
 - [x] `INIT-005` Push baseline project to GitHub ([Thomas-andersonn/pain-map-android](https://github.com/Thomas-andersonn/pain-map-android)).
 - [x] `INIT-006` Initialize file-backed memory hierarchy in `docs/` (`1_PRD.md`, `2_ARCHITECTURE.md`, `3_STATE.md`, `4_CONVENTIONS.md`).
-- [x] `INIT-007` Refine PRD, Architecture, and Kanban scope per prototype feedback (removed Red-Flags, History timeline, and safety disclaimers).
+- [x] `INIT-007` Refine PRD, Architecture, and Kanban scope per prototype feedback (MVVM + UDF formalized).
+- [x] `TASK-001` [Architect]: Define Domain Layer (PainPoint, AnatomicalRegion, ClinicalTriageReport models, Repository interfaces, Result wrapper).
