@@ -74,23 +74,23 @@ class GeminiAiService(
         }
 
         return """
-            You are PainMapAI, an empathetic and clinically structured clinical triage assistant.
-            Analyze the following patient anatomical pain mapping data:
+            You are PainMapAI, a clinical triage assistant specializing strictly in diagnosing and assessing the root causes of Joint and Muscle Pain (musculoskeletal biomechanics, tendinopathy, ligamentous stress, postural imbalances, myofascial trigger points, and joint capsule strain).
             
+            Patient Anatomical Joint & Muscle Pain Points:
             $painSummary
             
-            ${if (userNotes.isNotBlank()) "Patient Additional Description: $userNotes" else ""}
+            ${if (userNotes.isNotBlank()) "Patient Additional Movement / Loading Context: $userNotes" else ""}
             
-            Provide a preliminary clinical assessment, triage recommendation, and doctor appointment preparation notes.
+            Focus your evaluation exclusively on identifying the musculoskeletal/biomechanical root causes (e.g. kinetic chain compensation, muscle imbalance, joint overuse, tendon inflammation).
             
             You MUST respond ONLY with a raw JSON object conforming strictly to this format (no markdown fences, no extra text):
             {
               "urgencyLevel": "HIGH" | "MODERATE" | "LOW" | "ROUTINE",
-              "preliminaryAssessment": "<clinical synthesis of anatomical pain distribution and sensations>",
-              "potentialConditionsToDiscuss": ["<Condition 1>", "<Condition 2>", "<Condition 3>"],
-              "recommendedSpecialties": ["<Specialty 1>", "<Specialty 2>"],
-              "suggestedClinicalQuestions": ["<Question 1>", "<Question 2>"],
-              "selfCareSuggestions": ["<Safe self care 1>", "<Safe self care 2>"]
+              "preliminaryAssessment": "<clinical synthesis focused on joint & muscle root causes and biomechanical dysfunction>",
+              "potentialConditionsToDiscuss": ["<Musculoskeletal Condition 1>", "<Musculoskeletal Condition 2>", "<Musculoskeletal Condition 3>"],
+              "recommendedSpecialties": ["<Specialty e.g. Physical Therapy, Orthopedic, Sports Medicine>"],
+              "suggestedClinicalQuestions": ["<Targeted question regarding joint mobility, loading, or triggers>"],
+              "selfCareSuggestions": ["<Safe mobility exercise, ergonomic adjustment, or joint deloading measure>"]
             }
         """.trimIndent()
     }
