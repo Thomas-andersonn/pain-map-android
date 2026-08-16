@@ -9,7 +9,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.painmap.ui.screens.MainDashboardScreen
+import com.example.painmap.ui.screens.painmap.PainMapScreen
 import com.example.painmap.ui.screens.painmap.PainMapViewModel
+import com.example.painmap.ui.screens.triage.TriageResultScreen
 
 @Composable
 fun PainMapNavHost(
@@ -33,19 +35,30 @@ fun PainMapNavHost(
         }
 
         composable(PainMapRoute.BodyMap.route) {
-            // Placeholder destination wired for TASK-005 full 3D body map screen
-            MainDashboardScreen(
-                onStartAssessment = {
+            PainMapScreen(
+                uiState = uiState,
+                onAction = viewModel::onAction,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToTriage = {
                     navController.navigate(PainMapRoute.TriageResult.route)
                 }
             )
         }
 
         composable(PainMapRoute.TriageResult.route) {
-            // Placeholder destination wired for TASK-007 AI triage report screen
-            MainDashboardScreen(
-                onStartAssessment = {
-                    navController.navigate(PainMapRoute.Dashboard.route)
+            TriageResultScreen(
+                report = uiState.latestTriageReport,
+                onNavigateBackToMap = {
+                    navController.navigate(PainMapRoute.BodyMap.route) {
+                        popUpTo(PainMapRoute.BodyMap.route) { inclusive = true }
+                    }
+                },
+                onNavigateToDashboard = {
+                    navController.navigate(PainMapRoute.Dashboard.route) {
+                        popUpTo(PainMapRoute.Dashboard.route) { inclusive = true }
+                    }
                 }
             )
         }

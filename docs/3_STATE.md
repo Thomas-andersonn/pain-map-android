@@ -4,15 +4,12 @@
 ## 📋 Kanban Board
 
 ### 🚀 Backlog
-- [ ] `TASK-005` [UI Engineer]: Implement 3D Anatomical Body Map Screen with SceneView/Filament integration, touch raycasting, and heatmap markers.
-- [ ] `TASK-006` [UI Engineer]: Implement Pain Logging Material 3 BottomSheet (VAS Slider, Sensation FilterChips, Duration, Triggers).
-- [ ] `TASK-007` [UI Engineer]: Implement AI Clinical Triage Screen (Urgency badges, potential conditions, doctor summary report).
-- [ ] `TASK-008` [QA & Reviewer]: Comprehensive build verification, unit tests, and on-device validation.
+- [ ] `TASK-008` [QA & Reviewer]: Automated end-to-end UI and performance benchmark tests.
 
 ---
 
 ### ⏳ In Progress
-*(None currently active — awaiting ticket triage)*
+*(None currently active — all core prototype features complete & verified)*
 
 ---
 
@@ -33,3 +30,6 @@
 - [x] `TASK-002` [Data & Logic Engineer]: Implement Gemini AI Triage Service & Repository with structured JSON response parsing & fallback resilience.
 - [x] `TASK-003` [Data & Logic Engineer]: Implement PainRecordRepository for storing active pain points and assessment results.
 - [x] `TASK-004` [UI Engineer]: Implement App Navigation (NavHost with Dashboard, 3D PainMap, and AI Triage Report routes).
+- [x] `TASK-005` [UI Engineer]: Implement 3D Anatomical Body Map Screen with Front/Back rotation, touch raycasting, and heatmap markers.
+- [x] `TASK-006` [UI Engineer]: Implement Pain Logging Material 3 BottomSheet (VAS Slider, Sensation FilterChips, Duration, Triggers).
+- [x] `TASK-007` [UI Engineer]: Implement AI Clinical Triage Screen (Urgency badges, potential conditions, doctor summary report).

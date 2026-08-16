@@ -115,4 +115,74 @@ class PainMapViewModelTest {
         assertNotNull("Triage report should be set", state.latestTriageReport)
         assertTrue(state.latestTriageReport?.potentialConditionsToDiscuss?.isNotEmpty() == true)
     }
+
+    @Test
+    fun deletePainPoint_removesPointAndClosesSheet() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        val testPoint = PainPoint(
+            id = "point-delete-1",
+            region = AnatomicalRegion.ELBOW_LEFT,
+            intensity = 5
+        )
+        painRecordRepository.savePainPoint(testPoint)
+        advanceUntilIdle()
+
+        viewModel.onAction(PainMapUiAction.DeletePainPoint("point-delete-1"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue("Active pain points should be empty", state.activePainPoints.isEmpty())
+        assertFalse("Logging sheet should be closed", state.isLoggingSheetOpen)
+    }
+
+    @Test
+    fun clearAllPoints_removesAllPainPoints() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        painRecordRepository.savePainPoint(PainPoint(region = AnatomicalRegion.HEAD))
+        painRecordRepository.savePainPoint(PainPoint(region = AnatomicalRegion.NECK_CERVICAL))
+        advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.activePainPoints.size)
+
+        viewModel.onAction(PainMapUiAction.ClearAllPoints)
+        advanceUntilIdle()
+
+        assertTrue("All active points should be cleared", viewModel.uiState.value.activePainPoints.isEmpty())
+    }
+
+    @Test
+    fun requestAiTriage_withEmptyPainPoints_setsErrorMessage() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        var successCalled = false
+        viewModel.onAction(PainMapUiAction.RequestAiTriage(onSuccess = { successCalled = true }))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse("Success callback should not be called", successCalled)
+        assertFalse("Triage should not be loading", state.isTriageLoading)
+        assertNotNull("Error message should be set", state.errorMessage)
+    }
+
+    @Test
+    fun dismissError_clearsErrorMessage() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onAction(PainMapUiAction.RequestAiTriage())
+        advanceUntilIdle()
+        assertNotNull(viewModel.uiState.value.errorMessage)
+
+        viewModel.onAction(PainMapUiAction.DismissError)
+        advanceUntilIdle()
+        assertEquals(null, viewModel.uiState.value.errorMessage)
+    }
 }
