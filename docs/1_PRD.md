@@ -1,43 +1,40 @@
 # Product Requirements Document (PRD): PainMapAI
-
-## 1. Product Overview
-**PainMapAI** is a modern, clinical-grade Android application designed to revolutionize pain tracking and symptom analysis. By combining an interactive 3D anatomical body model (powered by SceneView) with generative AI (Google Gemini AI), users can visually pinpoint pain locations, describe sensations with high fidelity, track pain progressions over time, and generate actionable medical summaries for healthcare providers.
+**3D Human Body Pain-Mapping & AI Clinical Triage System**
 
 ---
 
-## 2. Target Users & Problem Statement
-- **Chronic Pain Patients:** Suffer from recurring or shifting pain (fibromyalgia, arthritis, migraines) and struggle to accurately describe location and intensity changes to clinicians.
-- **Post-Surgical / Injury Rehabilitation:** Need precise anatomical logging of healing or aggravating areas over days and weeks.
-- **Healthcare Providers:** Require structured, objective pain history reports rather than vague patient recollections.
+## 1. Vision & Objectives
+**PainMapAI** enables patients and clinicians to capture high-fidelity anatomical pain data on an interactive 3D human body model and receive automated, preliminary clinical triage, red-flag risk alerts, and structured medical appointment summaries powered by Google Gemini AI.
 
 ---
 
-## 3. Core Epics & Feature Specifications
+## 2. Core Epics & Feature Specifications
 
-### Epic 1: Interactive 3D Anatomical Body Map
-- **US-1.1:** As a user, I want to rotate, zoom, and pan a 3D anatomical model of the human body (front/back/lateral) to locate my pain area.
-- **US-1.2:** As a user, I want to tap on specific body regions (head, cervical spine, lumbar, knee, shoulder, etc.) to place a visual 3D pain marker.
-- **US-1.3:** As a user, I want pain markers to visually reflect pain severity using color-coded heatmap indicators (Green: 1-3, Amber: 4-6, Red: 7-8, Crimson: 9-10).
+### Epic 1: Interactive 3D Anatomical Body Mapping (SceneView / Filament)
+- **US-1.1 (3D Navigation):** Smooth orbit, pan, pinch-to-zoom, and 360° rotation around a 3D anatomical human model.
+- **US-1.2 (Anatomical Region Pinpointing):** Raycasting/tap detection on body meshes (Cervical, Thoracic, Lumbar, Shoulder, Elbow, Wrist, Hip, Knee, Ankle, Head/Cranium, etc.).
+- **US-1.3 (Dynamic Heatmap Markers):** Render glowing 3D spheres/nodes on highlighted anatomical regions color-graded by severity (Mild: Green/Teal, Moderate: Amber, Severe: Red/Crimson).
 
-### Epic 2: Granular Pain Point Logging
-- **US-2.1:** As a user, I want to specify pain intensity on a 1-10 visual analog scale (VAS).
-- **US-2.2:** As a user, I want to classify pain sensations (Throbbing, Stabbing, Aching, Burning, Tingling, Numbness, Stiffness).
-- **US-2.3:** As a user, I want to record pain triggers, duration, and contextual notes.
+### Epic 2: Granular Clinical Pain Logging (Material 3 BottomSheet)
+- **US-2.1 (Pain Intensity):** Material 3 Slider with Visual Analog Scale (VAS 1–10).
+- **US-2.2 (Pain Qualities / Sensation Types):** Multi-select FilterChips (Throbbing, Stabbing, Burning, Dull Ache, Shooting/Radiating, Numbness, Stiffness, Electric Shock).
+- **US-2.3 (Temporal Pattern & Triggers):** Duration selector (Acute < 2 weeks, Subacute 2-12 weeks, Chronic > 3 months) and aggravating/relieving factors.
+- **US-2.4 (Contextual Notes):** Free-form audio/text description of pain context.
 
-### Epic 3: Gemini AI Symptom Intelligence
-- **US-3.1:** As a user, I want to receive an instant, empathetic AI assessment analyzing the anatomical pattern and characteristics of my logged pain points.
-- **US-3.2:** As a user, I want Gemini AI to suggest relevant follow-up questions to refine the assessment (e.g., "Does pain radiate down the leg?").
-- **US-3.3:** As a user, I want to generate an exportable clinical summary formatted for doctor consultations.
+### Epic 3: Gemini-Powered Clinical Triage & Red-Flag Alerts
+- **US-3.1 (Structured Clinical Triage):** Send full anatomical pain payload to Gemini AI with structured schema enforcement (Severity, Potential Conditions to Discuss, Recommended Specialty, Urgency Level).
+- **US-3.2 (Red-Flag Emergency Detection):** Automated warning banners when symptoms match emergency criteria (e.g., sudden severe headache, chest pressure radiating to arm, numbness with loss of motor control).
+- **US-3.3 (Follow-up Refinement):** AI-generated clinical clarification questions to refine patient understanding.
+- **US-3.4 (Doctor Consultation Export):** Generate structured, formatted clinical handover report.
 
-### Epic 4: Pain History & Trend Analytics
-- **US-4.1:** As a user, I want to view a timeline and history log of past pain entries.
-- **US-4.2:** As a user, I want to see pain intensity trends over days/weeks to assess treatment effectiveness.
+### Epic 4: Historical Pain Timeline & Longitudinal Heatmaps
+- **US-4.1 (Pain Diary):** Timeline list of past pain records with visual intensity indicators.
+- **US-4.2 (Trend Analytics):** Visual progression of pain scores over time to measure treatment or therapy response.
 
 ---
 
-## 4. Technical Constraints & Non-Functional Requirements
-- **Platform:** Android 7.0+ (Min SDK 24, Target SDK 34).
-- **UI:** 100% Jetpack Compose with Material Design 3.
-- **Offline First:** Local persistence for all pain logs with optional cloud/AI sync.
-- **Performance:** 60fps rendering in 3D viewport, fast cold start under 1.5s.
-- **Privacy & Security:** Anonymized local storage of health data; API keys stored securely.
+## 3. Non-Functional & Clinical Safety Requirements
+- **Safety Disclaimer:** Explicit Medical Disclaimer banner stating PainMapAI is an informational triage aid, not a definitive diagnosis.
+- **Offline Reliability:** Full local caching of pain points and reports; graceful handling when offline.
+- **Performance:** 60fps rendering in SceneView; AI response loading states within 3s.
+- **Target OS:** Android 7.0+ (Min SDK 24, Target SDK 34).

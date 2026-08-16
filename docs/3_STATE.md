@@ -1,21 +1,23 @@
 # Global Project State & Memory: PainMapAI
+**3D Human Body Pain-Mapping & AI Clinical Triage System**
 
 ## 📋 Kanban Board
 
 ### 🚀 Backlog
-- [ ] `TASK-001` [Architect]: Define Domain Layer (PainPoint, PainAssessment models, Repository interfaces, Result wrapper).
-- [ ] `TASK-002` [Data & Logic Engineer]: Implement Local Data Layer (In-memory/Room Repository for PainPoints and Assessments).
-- [ ] `TASK-003` [Data & Logic Engineer]: Implement Gemini AI Symptom Analysis Remote Service & Repository.
-- [ ] `TASK-004` [UI Engineer]: Implement App Navigation (NavHost with Dashboard, 3D PainMap, Assessment, and History routes).
-- [ ] `TASK-005` [UI Engineer]: Implement 3D Pain Mapping Screen with SceneView integration and interactive body node selection.
-- [ ] `TASK-006` [UI Engineer]: Implement AI Assessment Flow & Doctor Summary Screen.
-- [ ] `TASK-007` [UI Engineer]: Implement History & Pain Trend Visualization Screen.
-- [ ] `TASK-008` [QA & Reviewer]: Comprehensive Unit Testing for UseCases, Repositories, and ViewModels.
+- [ ] `TASK-001` [Architect]: Define Domain Layer (PainPoint, AnatomicalRegion, ClinicalTriageReport, RedFlagAlert models, Repository interfaces, Result wrapper).
+- [ ] `TASK-002` [Data & Logic Engineer]: Implement Gemini AI Triage Service & Repository with structured JSON response parsing & fallback resilience.
+- [ ] `TASK-003` [Data & Logic Engineer]: Implement PainRecordRepository for storing local pain logs and assessment history.
+- [ ] `TASK-004` [UI Engineer]: Implement App Navigation (NavHost with Dashboard, 3D PainMap, AI Triage Report, and History routes).
+- [ ] `TASK-005` [UI Engineer]: Implement 3D Anatomical Body Map Screen with SceneView/Filament integration, touch raycasting, and heatmap markers.
+- [ ] `TASK-006` [UI Engineer]: Implement Pain Logging Material 3 BottomSheet (VAS Slider, Sensation FilterChips, Duration, Triggers).
+- [ ] `TASK-007` [UI Engineer]: Implement AI Clinical Triage Screen (Red-flag alert banners, urgency badges, doctor summary report).
+- [ ] `TASK-008` [UI Engineer]: Implement Pain Timeline & Historical Heatmaps Screen.
+- [ ] `TASK-009` [QA & Reviewer]: Unit testing for Gemini prompt serialization, UseCases, and Compose UI tests.
 
 ---
 
 ### ⏳ In Progress
-*(None currently active — awaiting ticket triage)*
+*(Ready for triage & active execution)*
 
 ---
 
@@ -31,3 +33,4 @@
 - [x] `INIT-004` Verify debug build and successful installation on physical Pixel 10 test device.
 - [x] `INIT-005` Push baseline project to GitHub ([Thomas-andersonn/pain-map-android](https://github.com/Thomas-andersonn/pain-map-android)).
 - [x] `INIT-006` Initialize file-backed memory hierarchy in `docs/` (`1_PRD.md`, `2_ARCHITECTURE.md`, `3_STATE.md`, `4_CONVENTIONS.md`).
+- [x] `INIT-007` Integrate complete 3D Pain-Mapping & AI Clinical Triage Project Specification into architectural memory.
