@@ -1,10 +1,9 @@
 # Global Project State & Memory: PainMapAI
-**3D Human Body Pain-Mapping & AI Clinical Triage System (Prototype)**
+**3D Joint & Muscle Pain-Mapping & Root Cause AI Triage System (Prototype)**
 
 ## 📋 Kanban Board
 
 ### 🚀 Backlog
-- [ ] `TASK-003` [Data & Logic Engineer]: Implement PainRecordRepository for storing active pain points and assessment results.
 - [ ] `TASK-004` [UI Engineer]: Implement App Navigation (NavHost with Dashboard, 3D PainMap, and AI Triage Report routes).
 - [ ] `TASK-005` [UI Engineer]: Implement 3D Anatomical Body Map Screen with SceneView/Filament integration, touch raycasting, and heatmap markers.
 - [ ] `TASK-006` [UI Engineer]: Implement Pain Logging Material 3 BottomSheet (VAS Slider, Sensation FilterChips, Duration, Triggers).
@@ -14,7 +13,7 @@
 ---
 
 ### ⏳ In Progress
-*(None currently active — awaiting user review & ticket triage)*
+*(None currently active — awaiting ticket triage)*
 
 ---
 
@@ -33,3 +32,4 @@
 - [x] `INIT-007` Refine PRD, Architecture, and Kanban scope per prototype feedback (MVVM + UDF formalized).
 - [x] `TASK-001` [Architect]: Define Domain Layer (PainPoint, AnatomicalRegion, ClinicalTriageReport models, Repository interfaces, Result wrapper).
 - [x] `TASK-002` [Data & Logic Engineer]: Implement Gemini AI Triage Service & Repository with structured JSON response parsing & fallback resilience.
+- [x] `TASK-003` [Data & Logic Engineer]: Implement PainRecordRepository for storing active pain points and assessment results.
