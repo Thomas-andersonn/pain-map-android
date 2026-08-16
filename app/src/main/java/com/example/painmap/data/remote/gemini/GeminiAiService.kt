@@ -5,12 +5,14 @@ import com.example.painmap.domain.model.PainDuration
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.domain.model.PainType
 import com.google.ai.client.generativeai.GenerativeModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 class GeminiAiService(
-    private val apiKey: String = ""
+    private val apiKey: String = "",
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
     private val jsonParser = Json {
         ignoreUnknownKeys = true
@@ -32,7 +34,7 @@ class GeminiAiService(
     suspend fun generateTriage(
         painPoints: List<PainPoint>,
         userNotes: String = ""
-    ): Result<GeminiTriageDto> = withContext(Dispatchers.IO) {
+    ): Result<GeminiTriageDto> = withContext(ioDispatcher) {
         try {
             if (painPoints.isEmpty()) {
                 return@withContext Result.failure(
