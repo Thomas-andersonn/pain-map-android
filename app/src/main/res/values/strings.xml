@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">PainMapAI</string>
+    <string name="dashboard_title">Pain Map AI</string>
+    <string name="dashboard_subtitle">Interactive 3D Anatomical Symptom Tracker</string>
+    <string name="start_assessment">Start AI Assessment</string>
+    <string name="recent_records">Recent Pain Logs</string>
+    <string name="interactive_model">3D Anatomical Body</string>
+    <string name="severity_level">Intensity: %1$d / 10</string>
+</resources>
