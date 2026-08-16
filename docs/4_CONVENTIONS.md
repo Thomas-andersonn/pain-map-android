@@ -1,34 +1,38 @@
 # Engineering Standards & Coding Conventions: PainMapAI
-
-## 1. Jetpack Compose Guidelines
-- **Lifecycle-Aware State Collection:** Always observe StateFlow using `collectAsStateWithLifecycle()` in root screen composables (`androidx.lifecycle.compose`).
-- **Stateless Child Composables:** Pass explicit data models and lambda callbacks. Never pass `ViewModel` instances into child composables.
-- **Recomposition Optimization:** Use `@Immutable` or `@Stable` annotations on UI state data classes where necessary. Keys must be specified for all `LazyColumn` / `LazyRow` items.
-- **Previews:** Every stateless component must have a `@Preview` showing light and dark theme variations.
-- **Modifiers:** Always accept an optional `modifier: Modifier = Modifier` as the first optional parameter.
+**MVVM + UDF Architecture Standards**
 
 ---
 
-## 2. Architecture & Unidirectional Data Flow (UDF)
-- **Single UiState:** Each screen ViewModel exposes a single `StateFlow<UiState>`.
-- **Sealed UiAction / UiEvent:** User interactions are modeled as sealed interfaces and dispatched via a single `onAction(action: UiAction)` function on the ViewModel.
-- **No Direct Repository Access:** UI must strictly interact through ViewModels and Domain UseCases.
+## 1. MVVM + Unidirectional Data Flow (UDF) Rules
+- **State Flow Direction (Downwards):** ViewModel -> `StateFlow<UiState>` -> Screen Composable -> Child Stateless Composables.
+- **Action Flow Direction (Upwards):** Child Composable -> Event Lambda -> Screen Composable -> `viewModel.onAction(action: UiAction)` -> ViewModel.
+- **Single UiState:** Each screen ViewModel exposes exactly one immutable `StateFlow<UiState>`.
+- **Sealed UiAction:** All user triggers on a screen are modeled in a sealed interface (e.g., `PainMapUiAction.SelectRegion`, `PainMapUiAction.SubmitPainLog`).
+- **Lifecycle Collection:** Collect UI state in Composables using `val state by viewModel.uiState.collectAsStateWithLifecycle()`.
+
+---
+
+## 2. Jetpack Compose Guidelines
+- **Stateless Child Composables:** Child composables must never receive `ViewModel` instances or repository instances. They only accept state primitives/data classes and event callbacks `(UiAction) -> Unit` or specific lambdas `() -> Unit`.
+- **Recomposition Safety:** Use `@Immutable` / `@Stable` data classes. Provide explicit `key` parameters in `LazyColumn` / `LazyRow`.
+- **Theme & Tokens:** Only use tokens defined in `com.example.painmap.ui.theme` (`MaterialTheme.colorScheme`, `MaterialTheme.typography`).
+- **Modifiers:** Always expose an optional `modifier: Modifier = Modifier` as the first optional parameter.
 
 ---
 
 ## 3. Concurrency & Threading Invariants
-- **Dispatcher Encapsulation:** ViewModels run on `Dispatchers.Main` via `viewModelScope`. All I/O work (Room DB queries, network calls, file reading) must switch to `Dispatchers.IO` inside the Repository / Data Source implementation (`withContext(Dispatchers.IO)`).
+- **Dispatcher Encapsulation:** ViewModels run on `Dispatchers.Main` (via `viewModelScope`). Any I/O work (network calls, Gemini SDK calls, disk caching) MUST be switched to `Dispatchers.IO` inside the Repository/Data Source implementation (`withContext(Dispatchers.IO)`).
 - **Flow Safety:** Flows emitting from repositories must remain cold where appropriate, or use `stateIn` with `SharingStarted.WhileSubscribed(5_000)` in ViewModels.
 
 ---
 
 ## 4. Error Handling & Result Pattern
-- Domain and Data layers return Kotlin's `Result<T>` or a sealed `DataError` / `NetworkError` type.
-- Never catch generic `Throwable` silently. Convert exceptions into structured UI error states (e.g. `UiState.Error(val message: String)`).
+- Repository methods return Kotlin's `Result<T>`.
+- ViewModels catch and map failure states into `UiState.error` or error flags for user-friendly UI display.
 
 ---
 
 ## 5. File & Package Naming
-- Packages are all lowercase without underscores (e.g., `com.example.painmap.domain.usecase`).
-- Composables are PascalCase and named descriptively (e.g., `PainIntensitySlider`, `AnatomicalModelViewer`).
+- Packages are all lowercase without underscores (e.g., `com.example.painmap.ui.screens.painmap`).
+- Composables are PascalCase (e.g., `PainIntensitySlider`, `PainMapScreen`).
 - State classes use suffix `UiState` (e.g., `PainMapUiState`), Actions use suffix `UiAction` (e.g., `PainMapUiAction`).

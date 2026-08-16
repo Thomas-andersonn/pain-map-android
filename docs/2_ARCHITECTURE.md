@@ -3,35 +3,57 @@
 
 ---
 
-## 1. Architectural Layers & Unidirectional Data Flow (UDF)
+## 1. Architectural Style: MVVM + UDF (Unidirectional Data Flow)
+
+PainMapAI strictly follows the **MVVM + UDF** architecture pattern:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            UI Layer (Jetpack Compose)                       │
-│  - Screens: DashboardScreen, PainMap3DScreen, TriageResultScreen            │
-│  - Components: PainLogBottomSheet, 3DViewportNode, VASlider, SensationChips │
-│  - ViewModels: StateFlow<UiState>, sealed interface UiAction / UiEvent      │
-└──────────────────────────────────────▲──────────────────────────────────────┘
-                                       │
-┌──────────────────────────────────────┴──────────────────────────────────────┐
-│                             Domain Layer (Pure Kotlin)                      │
-│  - Models: AnatomicalRegion, PainPoint, ClinicalTriageReport                │
-│  - Use Cases: LogPainPointUseCase, GenerateAiTriageUseCase                  │
-│  - Repository Interfaces: PainRecordRepository, AiTriageRepository          │
-└──────────────────────────────────────▲──────────────────────────────────────┘
-                                       │
-┌──────────────────────────────────────┴──────────────────────────────────────┐
-│                              Data Layer                                     │
-│  - Local Data Source: In-Memory / Preferences PainPoint Store               │
-│  - Remote AI Service: GeminiGenerativeAiService (Structured JSON Schema)    │
-│  - 3D Model Loader: Filament GLB/GLTF Node Controller                       │
-│  - Repository Impls: PainRecordRepositoryImpl, AiTriageRepositoryImpl       │
-└─────────────────────────────────────────────────────────────────────────────┘
+                  ┌─────────────────────────────────────────┐
+                  │             View (Compose UI)           │
+                  │  - Stateless UI + Stateful Screen Root  │
+                  │  - Emits UiAction                       │
+                  │  - Observes StateFlow<UiState>          │
+                  └──────────▲──────────────────┬───────────┘
+                             │                  │
+                UiState Flow │                  │ UiAction
+                             │                  ▼
+                  ┌──────────┴──────────────────────────────┐
+                  │                ViewModel                │
+                  │  - Holds MutableStateFlow<UiState>      │
+                  │  - Handles onAction(UiAction)           │
+                  │  - viewModelScope Coroutines            │
+                  └──────────▲──────────────────┬───────────┘
+                             │                  │
+                Domain Result│                  │ Calls Repository
+                             │                  ▼
+                  ┌──────────┴──────────────────────────────┐
+                  │           Model & Data Layer            │
+                  │  - Repository Interfaces & Impls        │
+                  │  - Local Pain Store / InMemory Cache    │
+                  │  - Gemini Generative AI Service         │
+                  └─────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Structured Gemini AI Triage Contract (JSON Schema)
+## 2. MVVM + UDF Invariants
+1. **View (Jetpack Compose):**
+   - Root screen composable collects `StateFlow<UiState>` via `collectAsStateWithLifecycle()`.
+   - User interactions are converted to sealed `UiAction` instances and sent to `viewModel.onAction(action)`.
+   - Child components are 100% stateless, receiving only the data they need and emitting event callbacks.
+2. **ViewModel (AndroidX Lifecycle):**
+   - Single immutable `UiState` data class per screen.
+   - Single entry point for user actions: `fun onAction(action: UiAction)`.
+   - Never exposes `MutableStateFlow` directly; exposes read-only `StateFlow<UiState>`.
+   - Never references Android UI elements (Context, View, Compose Nodes).
+3. **Model & Repositories (Data & Domain):**
+   - Repositories encapsulate data fetching, local caching, and Gemini AI remote calls.
+   - All I/O work runs on `Dispatchers.IO` inside the repository implementation.
+   - Returns structured `Result<T>` or domain models to the ViewModel.
+
+---
+
+## 3. Structured Gemini AI Triage Contract (JSON Schema)
 
 When dispatching anatomical pain points to Gemini AI, the response schema enforces:
 
@@ -60,19 +82,12 @@ When dispatching anatomical pain points to Gemini AI, the response schema enforc
 
 ---
 
-## 3. 3D Anatomical Scene Architecture (SceneView / Filament)
-- **Model:** Human Anatomical Body model in SceneView.
-- **Raycasting & Hit-Testing:** Taps on the 3D surface identify `AnatomicalRegion` and 3D normalized coordinates `(x, y, z)`.
-- **Dynamic Node Markers:** Node entities added dynamically with color shaders representing pain intensity.
-
----
-
 ## 4. Package Structure
 
 ```
 com.example.painmap/
 ├── data/
-│   ├── local/              # In-memory store & preferences
+│   ├── local/              # Local Storage, In-memory cache & Entities
 │   ├── remote/
 │   │   ├── gemini/         # Gemini AI client, prompt templates, JSON schema
 │   │   └── dto/            # Data Transfer Objects for AI serialization
@@ -80,8 +95,7 @@ com.example.painmap/
 │   └── mapper/             # DTO <-> Domain entity mappers
 ├── domain/
 │   ├── model/              # Pure domain models (PainPoint, AnatomicalRegion, ClinicalTriageReport)
-│   ├── repository/         # Repository interfaces (PainRecordRepository, AiTriageRepository)
-│   └── usecase/            # Pure UseCases (AnalyzePainPointsUseCase, SavePainEntryUseCase)
+│   └── repository/         # Repository interfaces (PainRecordRepository, AiTriageRepository)
 └── ui/
     ├── navigation/         # Navigation Graph & Screen routes
     ├── theme/              # Color, Type, Shape, Theme
