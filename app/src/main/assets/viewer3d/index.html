@@ -62,12 +62,13 @@
   </style>
   <script src="three.min.js"></script>
   <script src="OrbitControls.js"></script>
+  <script src="DRACOLoader.js"></script>
   <script src="GLTFLoader.js"></script>
 </head>
 <body>
   <div id="loading-overlay">
     <div class="spinner"></div>
-    <div class="loading-text">Loading Z-Anatomy 3D Model...</div>
+    <div class="loading-text">Loading Z-Anatomy Discrete Muscles...</div>
   </div>
   <div id="canvas-container"></div>
 
@@ -119,7 +120,7 @@
       controls.maxPolarAngle = Math.PI * 0.95;
       controls.minPolarAngle = Math.PI * 0.05;
 
-      // 4. Studio PBR Lighting Setup
+      // 4. Studio PBR Lighting
       const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.9);
       scene.add(ambientLight);
 
@@ -144,7 +145,7 @@
       raycaster = new THREE.Raycaster();
       mouse = new THREE.Vector2();
 
-      // 6. Load Z-Anatomy Model
+      // 6. Load Z-Anatomy with DRACO Loader
       loadZAnatomyModel();
 
       // 7. Event Listeners
@@ -155,7 +156,13 @@
     }
 
     function loadZAnatomyModel() {
+      const dracoLoader = new THREE.DRACOLoader();
+      dracoLoader.setDecoderPath('draco/');
+      dracoLoader.setDecoderConfig({ type: 'js' });
+
       const loader = new THREE.GLTFLoader();
+      loader.setDRACOLoader(dracoLoader);
+
       const modelPath = '../models/z_anatomy_fullbody.glb';
 
       loader.load(
@@ -178,13 +185,13 @@
           modelGroup.position.y = -center.y * targetScale + 0.85;
           modelGroup.position.z = -center.z * targetScale;
 
-          // Process individual muscle meshes
+          // Process individual discrete muscle meshes
           modelGroup.traverse((child) => {
             if (child.isMesh) {
               child.castShadow = true;
               child.receiveShadow = true;
 
-              // Medical Atlas Muscular PBR Material
+              // Individual Muscle Default Material (Slate-Cyan Atlas tone)
               const defaultMat = new THREE.MeshStandardMaterial({
                 color: 0x94A3B8,
                 roughness: 0.45,
@@ -194,7 +201,7 @@
               originalMaterials.set(child, defaultMat);
               child.material = defaultMat;
 
-              // Map mesh name to AnatomicalRegion
+              // Map each individual muscle mesh to its AnatomicalRegion
               const region = mapMeshNameToRegion(child.name);
               meshRegionMap.set(child, region);
             }
@@ -202,51 +209,11 @@
 
           scene.add(modelGroup);
           hideLoading();
+          updateMeshHighlights();
         },
         undefined,
         (error) => {
-          console.warn('Primary Z-Anatomy fullbody failed, attempting fallback...', error);
-          loadFallbackModel();
-        }
-      );
-    }
-
-    function loadFallbackModel() {
-      const loader = new THREE.GLTFLoader();
-      loader.load(
-        '../models/human_body.glb',
-        (gltf) => {
-          modelGroup = gltf.scene;
-          const box = new THREE.Box3().setFromObject(modelGroup);
-          const size = box.getSize(new THREE.Vector3());
-          const center = box.getCenter(new THREE.Vector3());
-
-          const targetScale = 1.70 / (size.y || 1.70);
-          modelGroup.scale.setScalar(targetScale);
-          modelGroup.position.x = -center.x * targetScale;
-          modelGroup.position.y = -center.y * targetScale + 0.85;
-          modelGroup.position.z = -center.z * targetScale;
-
-          modelGroup.traverse((child) => {
-            if (child.isMesh) {
-              const defaultMat = new THREE.MeshStandardMaterial({
-                color: 0x94A3B8,
-                roughness: 0.45,
-                metalness: 0.15,
-                side: THREE.DoubleSide
-              });
-              originalMaterials.set(child, defaultMat);
-              child.material = defaultMat;
-              meshRegionMap.set(child, 'LOWER_BACK_LUMBAR');
-            }
-          });
-
-          scene.add(modelGroup);
-          hideLoading();
-        },
-        undefined,
-        (err) => {
-          console.error('All GLB models failed to load', err);
+          console.error('Error loading Z-Anatomy Draco model:', error);
           hideLoading();
         }
       );
@@ -260,16 +227,16 @@
       if (n.includes('masseter') || n.includes('jaw') || n.includes('pterygoid')) return 'JAW_FACIAL';
       if (n.includes('sternocleidomastoid') || n.includes('scalene') || n.includes('cervical')) return 'NECK_CERVICAL';
 
-      // Torso & Spine
+      // Torso & Back Muscles
       if (n.includes('pectoralis') || n.includes('sternocostal')) return 'CHEST_THORACIC';
       if (n.includes('trapezius') || n.includes('rhomboid') || n.includes('latissimus')) return 'UPPER_BACK';
       if (n.includes('rectus abdominis') || n.includes('oblique') || n.includes('transversus')) return 'ABDOMEN';
-      if (n.includes('iliocostalis') || n.includes('longissimus') || n.includes('multifidus') || n.includes('lumbar') || n.includes('erector') || n.includes('spinalis')) {
+      if (n.includes('iliocostalis') || n.includes('longissimus') || n.includes('multifidus') || n.includes('lumbar') || n.includes('erector') || n.includes('spinalis') || n.includes('quadratus lumborum')) {
         return 'LOWER_BACK_LUMBAR';
       }
       if (n.includes('pelvis') || n.includes('sacrum') || n.includes('gluteus medius') || n.includes('gluteus minimus')) return 'PELVIS_HIPS';
 
-      // Upper Limbs
+      // Shoulder & Arm Muscles
       if (n.includes('deltoid') || n.includes('supraspinatus') || n.includes('infraspinatus') || n.includes('subscapularis')) {
         return (n.includes('.l') || n.includes('left')) ? 'SHOULDER_LEFT' : 'SHOULDER_RIGHT';
       }
@@ -286,7 +253,7 @@
         return (n.includes('.l') || n.includes('left')) ? 'WRIST_HAND_LEFT' : 'WRIST_HAND_RIGHT';
       }
 
-      // Lower Limbs
+      // Hip & Leg Muscles
       if (n.includes('gluteus maximus') || n.includes('gluteal') || n.includes('piriformis') || n.includes('hip')) {
         return (n.includes('.l') || n.includes('left')) ? 'HIP_LEFT' : 'HIP_RIGHT';
       }
