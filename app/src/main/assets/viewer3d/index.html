@@ -79,7 +79,7 @@
     let brushIntensity = 5;
     let activePainMap = {}; // regionName -> intensity
     const meshRegionMap = new Map(); // mesh -> AnatomicalRegion
-    const originalMaterials = new Map();
+    const allMeshes = [];
 
     const SEVERITY_COLORS = {
       low: 0x10B981,      // Green (1-3)
@@ -145,7 +145,7 @@
       raycaster = new THREE.Raycaster();
       mouse = new THREE.Vector2();
 
-      // 6. Load Z-Anatomy with DRACO Loader
+      // 6. Load Z-Anatomy Model with Draco Decoder
       loadZAnatomyModel();
 
       // 7. Event Listeners
@@ -159,6 +159,7 @@
       const dracoLoader = new THREE.DRACOLoader();
       dracoLoader.setDecoderPath('draco/');
       dracoLoader.setDecoderConfig({ type: 'js' });
+      dracoLoader.preload();
 
       const loader = new THREE.GLTFLoader();
       loader.setDRACOLoader(dracoLoader);
@@ -185,25 +186,33 @@
           modelGroup.position.y = -center.y * targetScale + 0.85;
           modelGroup.position.z = -center.z * targetScale;
 
-          // Process individual discrete muscle meshes
+          // Update world matrix so child world positions are accurate
+          modelGroup.updateMatrixWorld(true);
+
+          // Process each individual muscle mesh with independent material
           modelGroup.traverse((child) => {
             if (child.isMesh) {
               child.castShadow = true;
               child.receiveShadow = true;
 
-              // Individual Muscle Default Material (Slate-Cyan Atlas tone)
-              const defaultMat = new THREE.MeshStandardMaterial({
+              // Give each mesh its own independent material instance
+              child.material = new THREE.MeshStandardMaterial({
                 color: 0x94A3B8,
                 roughness: 0.45,
                 metalness: 0.15,
                 side: THREE.DoubleSide
               });
-              originalMaterials.set(child, defaultMat);
-              child.material = defaultMat;
 
-              // Map each individual muscle mesh to its AnatomicalRegion
-              const region = mapMeshNameToRegion(child.name);
+              // Compute mesh world position to precisely separate Left vs Right limbs
+              const worldPos = new THREE.Vector3();
+              child.getWorldPosition(worldPos);
+
+              const parentName = child.parent ? child.parent.name : '';
+              const nodeName = child.name || parentName;
+              const region = mapMeshToAnatomicalRegion(nodeName, parentName, worldPos);
+
               meshRegionMap.set(child, region);
+              allMeshes.push(child);
             }
           });
 
@@ -219,61 +228,72 @@
       );
     }
 
-    function mapMeshNameToRegion(meshName) {
-      const n = (meshName || '').toLowerCase();
+    function mapMeshToAnatomicalRegion(nodeName, parentName, worldPos) {
+      const combined = (nodeName + ' ' + parentName).toLowerCase();
+
+      // Determine Left vs Right by explicit node suffix or world X coordinate
+      // In anatomical view: X > 0.015 is Left limb, X < -0.015 is Right limb
+      const hasLeftIndicator = combined.includes('.l') || combined.includes('left');
+      const hasRightIndicator = combined.includes('.r') || combined.includes('right');
+
+      let isLeft = false;
+      if (hasLeftIndicator && !hasRightIndicator) {
+        isLeft = true;
+      } else if (hasRightIndicator && !hasLeftIndicator) {
+        isLeft = false;
+      } else {
+        isLeft = (worldPos.x > 0.01);
+      }
 
       // Head & Neck
-      if (n.includes('temporalis') || n.includes('frontalis') || n.includes('cranium')) return 'HEAD';
-      if (n.includes('masseter') || n.includes('jaw') || n.includes('pterygoid')) return 'JAW_FACIAL';
-      if (n.includes('sternocleidomastoid') || n.includes('scalene') || n.includes('cervical')) return 'NECK_CERVICAL';
+      if (combined.includes('temporalis') || combined.includes('frontalis') || combined.includes('cranium') || combined.includes('head')) return 'HEAD';
+      if (combined.includes('masseter') || combined.includes('jaw') || combined.includes('pterygoid')) return 'JAW_FACIAL';
+      if (combined.includes('sternocleidomastoid') || combined.includes('scalene') || combined.includes('cervical') || combined.includes('neck')) return 'NECK_CERVICAL';
 
-      // Torso & Back Muscles
-      if (n.includes('pectoralis') || n.includes('sternocostal')) return 'CHEST_THORACIC';
-      if (n.includes('trapezius') || n.includes('rhomboid') || n.includes('latissimus')) return 'UPPER_BACK';
-      if (n.includes('rectus abdominis') || n.includes('oblique') || n.includes('transversus')) return 'ABDOMEN';
-      if (n.includes('iliocostalis') || n.includes('longissimus') || n.includes('multifidus') || n.includes('lumbar') || n.includes('erector') || n.includes('spinalis') || n.includes('quadratus lumborum')) {
+      // Torso & Back
+      if (combined.includes('pectoralis') || combined.includes('sternocostal')) return 'CHEST_THORACIC';
+      if (combined.includes('trapezius') || combined.includes('rhomboid') || combined.includes('latissimus')) return 'UPPER_BACK';
+      if (combined.includes('rectus abdominis') || combined.includes('oblique') || combined.includes('transversus') || combined.includes('abdomen')) return 'ABDOMEN';
+      if (combined.includes('iliocostalis') || combined.includes('longissimus') || combined.includes('multifidus') || combined.includes('lumbar') || combined.includes('erector') || combined.includes('spinalis') || combined.includes('quadratus lumborum')) {
         return 'LOWER_BACK_LUMBAR';
       }
-      if (n.includes('pelvis') || n.includes('sacrum') || n.includes('gluteus medius') || n.includes('gluteus minimus')) return 'PELVIS_HIPS';
+      if (combined.includes('pelvis') || combined.includes('sacrum')) return 'PELVIS_HIPS';
 
-      // Shoulder & Arm Muscles
-      if (n.includes('deltoid') || n.includes('supraspinatus') || n.includes('infraspinatus') || n.includes('subscapularis')) {
-        return (n.includes('.l') || n.includes('left')) ? 'SHOULDER_LEFT' : 'SHOULDER_RIGHT';
+      // Shoulder & Arms
+      if (combined.includes('deltoid') || combined.includes('supraspinatus') || combined.includes('infraspinatus') || combined.includes('subscapularis') || combined.includes('shoulder')) {
+        return isLeft ? 'SHOULDER_LEFT' : 'SHOULDER_RIGHT';
       }
-      if (n.includes('biceps') || n.includes('brachialis') || n.includes('coracobrachialis') || n.includes('triceps')) {
-        return (n.includes('.l') || n.includes('left')) ? 'ARM_UPPER_LEFT' : 'ARM_UPPER_RIGHT';
+      if (combined.includes('biceps') || combined.includes('brachialis') || combined.includes('coracobrachialis') || combined.includes('triceps')) {
+        return isLeft ? 'ARM_UPPER_LEFT' : 'ARM_UPPER_RIGHT';
       }
-      if (n.includes('pronator teres') || n.includes('anconeus') || n.includes('elbow')) {
-        return (n.includes('.l') || n.includes('left')) ? 'ELBOW_LEFT' : 'ELBOW_RIGHT';
+      if (combined.includes('pronator teres') || combined.includes('anconeus') || combined.includes('elbow')) {
+        return isLeft ? 'ELBOW_LEFT' : 'ELBOW_RIGHT';
       }
-      if (n.includes('flexor') || n.includes('extensor') || n.includes('brachioradialis') || n.includes('supinator') || n.includes('pronator')) {
-        return (n.includes('.l') || n.includes('left')) ? 'FOREARM_LEFT' : 'FOREARM_RIGHT';
+      if (combined.includes('flexor') || combined.includes('extensor') || combined.includes('brachioradialis') || combined.includes('supinator') || combined.includes('forearm')) {
+        return isLeft ? 'FOREARM_LEFT' : 'FOREARM_RIGHT';
       }
-      if (n.includes('wrist') || n.includes('palmaris') || n.includes('hand') || n.includes('indicis')) {
-        return (n.includes('.l') || n.includes('left')) ? 'WRIST_HAND_LEFT' : 'WRIST_HAND_RIGHT';
-      }
-
-      // Hip & Leg Muscles
-      if (n.includes('gluteus maximus') || n.includes('gluteal') || n.includes('piriformis') || n.includes('hip')) {
-        return (n.includes('.l') || n.includes('left')) ? 'HIP_LEFT' : 'HIP_RIGHT';
-      }
-      if (n.includes('rectus femoris') || n.includes('vastus') || n.includes('quadriceps') || n.includes('sartorius')) {
-        return (n.includes('.l') || n.includes('left')) ? 'THIGH_QUAD_LEFT' : 'THIGH_QUAD_RIGHT';
-      }
-      if (n.includes('biceps femoris') || n.includes('semitendinosus') || n.includes('semimembranosus') || n.includes('adductor') || n.includes('gracilis') || n.includes('pectineus')) {
-        return (n.includes('.l') || n.includes('left')) ? 'THIGH_QUAD_LEFT' : 'THIGH_QUAD_RIGHT';
-      }
-      if (n.includes('knee') || n.includes('patella') || n.includes('popliteus')) {
-        return (n.includes('.l') || n.includes('left')) ? 'KNEE_LEFT' : 'KNEE_RIGHT';
-      }
-      if (n.includes('gastrocnemius') || n.includes('soleus') || n.includes('plantaris') || n.includes('tibialis') || n.includes('fibularis')) {
-        return (n.includes('.l') || n.includes('left')) ? 'CALF_SHIN_LEFT' : 'CALF_SHIN_RIGHT';
-      }
-      if (n.includes('ankle') || n.includes('foot') || n.includes('calcaneus') || n.includes('talus')) {
-        return (n.includes('.l') || n.includes('left')) ? 'ANKLE_FOOT_LEFT' : 'ANKLE_FOOT_RIGHT';
+      if (combined.includes('wrist') || combined.includes('palmaris') || combined.includes('hand') || combined.includes('indicis')) {
+        return isLeft ? 'WRIST_HAND_LEFT' : 'WRIST_HAND_RIGHT';
       }
 
-      return 'LOWER_BACK_LUMBAR';
+      // Hips & Legs
+      if (combined.includes('gluteus') || combined.includes('gluteal') || combined.includes('piriformis') || combined.includes('hip')) {
+        return isLeft ? 'HIP_LEFT' : 'HIP_RIGHT';
+      }
+      if (combined.includes('rectus femoris') || combined.includes('vastus') || combined.includes('quadriceps') || combined.includes('sartorius') || combined.includes('biceps femoris') || combined.includes('semitendinosus') || combined.includes('semimembranosus') || combined.includes('adductor') || combined.includes('gracilis') || combined.includes('pectineus') || combined.includes('thigh')) {
+        return isLeft ? 'THIGH_QUAD_LEFT' : 'THIGH_QUAD_RIGHT';
+      }
+      if (combined.includes('knee') || combined.includes('patella') || combined.includes('popliteus')) {
+        return isLeft ? 'KNEE_LEFT' : 'KNEE_RIGHT';
+      }
+      if (combined.includes('gastrocnemius') || combined.includes('soleus') || combined.includes('plantaris') || combined.includes('tibialis') || combined.includes('fibularis') || combined.includes('calf')) {
+        return isLeft ? 'CALF_SHIN_LEFT' : 'CALF_SHIN_RIGHT';
+      }
+      if (combined.includes('ankle') || combined.includes('foot') || combined.includes('calcaneus') || combined.includes('talus')) {
+        return isLeft ? 'ANKLE_FOOT_LEFT' : 'ANKLE_FOOT_RIGHT';
+      }
+
+      return isLeft ? 'THIGH_QUAD_LEFT' : 'THIGH_QUAD_RIGHT';
     }
 
     function setupTouchInteractions() {
@@ -314,11 +334,12 @@
       mouse.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(modelGroup.children, true);
+      const intersects = raycaster.intersectObjects(allMeshes, true);
 
       if (intersects.length > 0) {
         const hitMesh = intersects[0].object;
-        const region = meshRegionMap.get(hitMesh) || mapMeshNameToRegion(hitMesh.name);
+        const region = meshRegionMap.get(hitMesh);
+        if (!region) return;
 
         if (toolMode === 'PAINT') {
           paintRegion(region, brushIntensity);
@@ -349,33 +370,28 @@
     }
 
     function updateMeshHighlights() {
-      if (!modelGroup) return;
+      if (allMeshes.length === 0) return;
 
-      modelGroup.traverse((child) => {
-        if (child.isMesh) {
-          const region = meshRegionMap.get(child) || mapMeshNameToRegion(child.name);
-          const intensity = activePainMap[region];
+      for (let i = 0; i < allMeshes.length; i++) {
+        const mesh = allMeshes[i];
+        const region = meshRegionMap.get(mesh);
+        const intensity = activePainMap[region];
 
-          if (intensity) {
-            const hexColor = getSeverityHex(intensity);
-            child.material = new THREE.MeshStandardMaterial({
-              color: hexColor,
-              emissive: hexColor,
-              emissiveIntensity: 0.50,
-              roughness: 0.35,
-              metalness: 0.15,
-              side: THREE.DoubleSide
-            });
-          } else {
-            child.material = originalMaterials.get(child) || new THREE.MeshStandardMaterial({
-              color: 0x94A3B8,
-              roughness: 0.45,
-              metalness: 0.15,
-              side: THREE.DoubleSide
-            });
-          }
+        if (intensity) {
+          const hexColor = getSeverityHex(intensity);
+          mesh.material.color.setHex(hexColor);
+          mesh.material.emissive.setHex(hexColor);
+          mesh.material.emissiveIntensity = 0.55;
+          mesh.material.roughness = 0.35;
+          mesh.material.metalness = 0.15;
+        } else {
+          mesh.material.color.setHex(0x94A3B8);
+          mesh.material.emissive.setHex(0x000000);
+          mesh.material.emissiveIntensity = 0.0;
+          mesh.material.roughness = 0.45;
+          mesh.material.metalness = 0.15;
         }
-      });
+      }
     }
 
     function getSeverityHex(intensity) {

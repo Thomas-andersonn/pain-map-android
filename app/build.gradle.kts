@@ -72,8 +72,9 @@ dependencies {
     // Gemini Generative AI SDK
     implementation(libs.google.generativeai)
 
-    // 3D SceneView
+    // 3D SceneView & WebKit Asset Loader
     implementation(libs.sceneview)
+    implementation(libs.androidx.webkit)
 
     // Kotlinx Extensions
     implementation(libs.kotlinx.serialization.json)

@@ -39,6 +39,7 @@ google-generativeai = { group = "com.google.ai.client.generativeai", name = "gen
 
 # 3D Scene Rendering
 sceneview = { group = "io.github.sceneview", name = "sceneview", version.ref = "sceneview" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version = "1.11.0" }
 
 # Kotlinx Extensions
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }

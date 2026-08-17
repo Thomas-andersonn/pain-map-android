@@ -2,6 +2,7 @@ package com.example.painmap.ui.components.model3d
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.webkit.WebViewAssetLoader
 import com.example.painmap.domain.model.AnatomicalRegion
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.ui.theme.TealLight
@@ -239,6 +241,10 @@ private fun create3DWebView(
     onErase: (String) -> Unit,
     onSelect: (String) -> Unit
 ): WebView {
+    val assetLoader = WebViewAssetLoader.Builder()
+        .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+        .build()
+
     return WebView(context).apply {
         setLayerType(View.LAYER_TYPE_HARDWARE, null)
         settings.apply {
@@ -246,39 +252,23 @@ private fun create3DWebView(
             domStorageEnabled = true
             allowFileAccess = true
             allowContentAccess = true
-            allowFileAccessFromFileURLs = true
-            allowUniversalAccessFromFileURLs = true
             loadWithOverviewMode = true
             useWideViewPort = true
-            cacheMode = WebSettings.LOAD_NO_CACHE
+            cacheMode = WebSettings.LOAD_DEFAULT
         }
-        webChromeClient = WebChromeClient()
+        webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+                android.util.Log.d("3DViewer", "${consoleMessage?.message()} [line: ${consoleMessage?.lineNumber()} in ${consoleMessage?.sourceId()}]")
+                return true
+            }
+        }
         webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView?,
                 request: WebResourceRequest?
             ): WebResourceResponse? {
-                val url = request?.url?.toString() ?: return null
-                if (url.endsWith(".glb") || url.contains("models/")) {
-                    val filename = if (url.contains("z_anatomy_fullbody")) {
-                        "models/z_anatomy_fullbody.glb"
-                    } else {
-                        "models/human_body.glb"
-                    }
-                    return try {
-                        val inputStream = context.assets.open(filename)
-                        WebResourceResponse("model/gltf-binary", "UTF-8", inputStream).apply {
-                            responseHeaders = mapOf(
-                                "Access-Control-Allow-Origin" to "*",
-                                "Access-Control-Allow-Methods" to "GET, OPTIONS",
-                                "Access-Control-Allow-Headers" to "*"
-                            )
-                        }
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                return super.shouldInterceptRequest(view, request)
+                val uri = request?.url ?: return null
+                return assetLoader.shouldInterceptRequest(uri)
             }
         }
         addJavascriptInterface(
@@ -300,6 +290,6 @@ private fun create3DWebView(
             },
             "AndroidBridge"
         )
-        loadUrl("file:///android_asset/viewer3d/index.html")
+        loadUrl("https://appassets.androidplatform.net/assets/viewer3d/index.html")
     }
 }
