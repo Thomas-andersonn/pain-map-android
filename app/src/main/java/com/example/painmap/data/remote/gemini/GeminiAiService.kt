@@ -4,14 +4,16 @@ import com.example.painmap.data.remote.dto.GeminiTriageDto
 import com.example.painmap.domain.model.PainDuration
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.domain.model.PainType
+import com.example.painmap.BuildConfig
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.generationConfig
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 class GeminiAiService(
-    private val apiKey: String = "",
+    private val apiKey: String = BuildConfig.GEMINI_API_KEY,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
     private val jsonParser = Json {
@@ -23,8 +25,12 @@ class GeminiAiService(
     private val generativeModel by lazy {
         if (apiKey.isNotBlank()) {
             GenerativeModel(
-                modelName = "gemini-1.5-flash",
-                apiKey = apiKey
+                modelName = "gemini-3.7-flash",
+                apiKey = apiKey,
+                generationConfig = generationConfig {
+                    responseMimeType = "application/json"
+                    temperature = 0.2f
+                }
             )
         } else {
             null
