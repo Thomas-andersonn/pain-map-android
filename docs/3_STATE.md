@@ -1,38 +1,24 @@
-# Global Project State & Memory: PainMapAI
-**3D Joint & Muscle Pain-Mapping & Root Cause AI Triage System (Prototype)**
+# Session State (Current)
 
-## 📋 Kanban Board
+## Active Development Phase
+- **Current Milestone:** Milestone 1 - Core MVP & 3D Anatomical Pain Mapping
+- **Completed Tasks:**
+  - `TASK-001`: Project Scaffolding, Architecture Setup & Theme Configuration
+  - `TASK-002`: Gemini AI Triage Service & Repository
+  - `TASK-003`: Pain Record Local & Remote Repository
+  - `TASK-004`: Navigation, PainMapRoute, ViewModel & NavHost
+  - `TASK-005`: Interactive 3D Body Mapping Screen
+  - `TASK-006`: PainLogBottomSheet (VAS & Quality Picker)
+  - `TASK-007`: AI Triage Result Screen
+  - `TASK-008`: Main Dashboard, FAB & Quick Symptom Logger
+  - `TASK-009`: 3D Rotatable Model & Anatomical Section Painting Tool
+  - `TASK-010`: Z-Anatomy 3D Musculoskeletal Model & Painting Engine
+  - `TASK-011`: Hardware-Accelerated 3D GLB Mesh Renderer & Limb Isolation Fix
+  - `TASK-012`: Complete Full-Body 3D Anatomy (Head-to-Toe) with Pinpoint Dynamic UV Paint Brush Engine & Quick-Focus Controls
 
-### 🚀 Backlog
-- [ ] `TASK-008` [QA & Reviewer]: Automated end-to-end UI and performance benchmark tests.
-
----
-
-### ⏳ In Progress
-*(None currently active — all core prototype features complete & verified)*
-
----
-
-### 🛑 Blocked
-*(None)*
-
----
-
-### ✅ Done
-- [x] `INIT-001` Scaffold initial Android repository in `pain-map-android/`.
-- [x] `INIT-002` Configure Gradle Version Catalog (`libs.versions.toml`) with Kotlin 2.0, Compose BOM, Gemini SDK, and SceneView.
-- [x] `INIT-003` Set up Material 3 theme, colors, typography, and initial skeleton composables.
-- [x] `INIT-004` Verify debug build and successful installation on physical Pixel 10 test device.
-- [x] `INIT-005` Push baseline project to GitHub ([Thomas-andersonn/pain-map-android](https://github.com/Thomas-andersonn/pain-map-android)).
-- [x] `INIT-006` Initialize file-backed memory hierarchy in `docs/` (`1_PRD.md`, `2_ARCHITECTURE.md`, `3_STATE.md`, `4_CONVENTIONS.md`).
-- [x] `INIT-007` Refine PRD, Architecture, and Kanban scope per prototype feedback (MVVM + UDF formalized).
-- [x] `TASK-001` [Architect]: Define Domain Layer (PainPoint, AnatomicalRegion, ClinicalTriageReport models, Repository interfaces, Result wrapper).
-- [x] `TASK-002` [Data & Logic Engineer]: Implement Gemini AI Triage Service & Repository with structured JSON response parsing & fallback resilience.
-- [x] `TASK-003` [Data & Logic Engineer]: Implement PainRecordRepository for storing active pain points and assessment results.
-- [x] `TASK-004` [UI Engineer]: Implement App Navigation (NavHost with Dashboard, 3D PainMap, and AI Triage Report routes).
-- [x] `TASK-005` [UI Engineer]: Implement 3D Anatomical Body Map Screen with Front/Back rotation, touch raycasting, and heatmap markers.
-- [x] `TASK-006` [UI Engineer]: Implement Pain Logging Material 3 BottomSheet (VAS Slider, Sensation FilterChips, Duration, Triggers).
-- [x] `TASK-007` [UI Engineer]: Implement AI Clinical Triage Screen (Urgency badges, potential conditions, doctor summary report).
-- [x] `TASK-009` [UI Engineer]: Implement 3D Rotatable Model & Anatomical Section Painting Tool with variable intensity brushes and real-time heatmap shaders.
-- [x] `TASK-010` [UI Engineer]: Integrate High-Fidelity Z-Anatomy 3D Musculoskeletal Model & Articular Atlas.
-- [x] `TASK-011` [UI Engineer]: Activate Hardware-Accelerated 3D GLB Mesh Renderer with Real-Time PBR Lighting, 360° Touch Orbit, and Precision Mesh Pain Highlighting.
+## Invariants & Rules
+- Architecture: MVVM + UDF (Unidirectional Data Flow)
+- Dynamic UV Texture Canvas Painting: 1024x1024 offscreen canvas mapped to PBR emissiveMap
+- Quick-Focus Presets: Full Body, Back View, Head & Neck, Torso & Spine, Legs & Feet, Reset
+- Quality Check: QA & Reviewer Subagent sign-off required for all tasks.
+- Continuous Device Verification: Screenshots verified across physical Pixel 10 and emulator.

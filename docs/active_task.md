@@ -1,10 +1,11 @@
-# Active Task: [IDLE]
-- **Persona:** [Lead Agent Orchestrator]
-- **Goal:** TASK-011 (Hardware-Accelerated 3D GLB Mesh Renderer & Painting Engine) fully verified and deployed with live device screenshots.
-- **Inputs:** `docs/1_PRD.md`, `docs/2_ARCHITECTURE.md`, `docs/3_STATE.md`, `docs/4_CONVENTIONS.md`
-- **Constraints:** Follow strict 5-step execution protocol for all future tickets.
+# Active Task: TASK-012
+- **Persona:** [UI Engineer]
+- **Goal:** Implement Full-Body (Head-to-Toe) 3D Model with Pinpoint UV Paint Brush Engine and Patient-Centric Focus Controls.
+- **Inputs:** `docs/1_PRD.md`, `docs/2_ARCHITECTURE.md`, `docs/3_STATE.md`, `docs/4_CONVENTIONS.md`, `implementation_plan.md`
+- **Constraints:** Full Head-to-Toe anatomical coverage, millimeter-precise UV canvas brush painting, quick focus presets, 60fps hardware acceleration, continuous device screenshots.
 - **Acceptance Criteria:**
-  - [x] 3D GLB Mesh Renderer with real-time PBR lighting, 360° orbit, and mesh pain highlighting operational
-  - [x] 19/19 unit tests passing verified by QA subagent
-  - [x] Live device screenshots captured and verified
-  - [x] Synced to git origin/main
+  - [ ] Complete full-body model with Head/Face/Neck, Torso/Arms/Hands, Legs/Ankles/Feet
+  - [ ] Dynamic UV Texture Canvas Painting engine with localized brush strokes and erase capability
+  - [ ] Quick-Focus Camera presets (Head/Neck, Torso/Spine, Legs/Feet, Front, Back, Reset)
+  - [ ] All unit tests pass with zero errors via `[QA & Reviewer]` subagent
+  - [ ] Live device screenshots captured and verified from user perspective

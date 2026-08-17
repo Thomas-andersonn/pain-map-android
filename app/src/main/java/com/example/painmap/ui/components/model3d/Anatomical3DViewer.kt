@@ -11,6 +11,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.RestartAlt
@@ -50,12 +52,10 @@ import com.example.painmap.domain.model.AnatomicalRegion
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.ui.theme.TealLight
 import com.example.painmap.ui.theme.TealPrimary
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 /**
- * Hardware-Accelerated 3D GLB Mesh Viewer rendering the authentic Z-Anatomy 3D Medical Model
- * with real-time PBR lighting, 360-degree touch orbit, pinch-zoom, and precision mesh paint highlighting.
+ * Hardware-Accelerated Complete Full-Body 3D Anatomical Pain Mapper (Head-to-Toe)
+ * with Dynamic UV Canvas Texture Pinpoint Brush Painting and Patient-Centric Focus Controls.
  */
 @Composable
 fun Anatomical3DViewer(
@@ -86,19 +86,6 @@ fun Anatomical3DViewer(
         webViewRef?.evaluateJavascript("if (window.setBrushIntensity) window.setBrushIntensity($brushIntensity);", null)
     }
 
-    // Sync active pain points with 3D engine
-    LaunchedEffect(activePainPoints) {
-        val jsonString = Json.encodeToString(
-            activePainPoints.map {
-                PainPointJsonPayload(
-                    region = it.region.name,
-                    intensity = it.intensity
-                )
-            }
-        )
-        webViewRef?.evaluateJavascript("if (window.syncPainPoints) window.syncPainPoints('$jsonString');", null)
-    }
-
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(24.dp),
@@ -114,7 +101,7 @@ fun Anatomical3DViewer(
                 .fillMaxSize()
                 .padding(14.dp)
         ) {
-            // Top Bar: 3D Model Status & Camera Presets
+            // Top Bar: 3D Model Header & Reset
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -132,45 +119,66 @@ fun Anatomical3DViewer(
                     )
                     Column {
                         Text(
-                            text = "Z-Anatomy 3D Model",
+                            text = "Full-Body 3D Anatomy",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "3D Musculoskeletal Mesh (PBR)",
+                            text = "Head-to-Toe Pinpoint Pain Mapper",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    QuickViewButton("Front", isSelected = currentPreset == "front") {
+                IconButton(
+                    onClick = {
                         currentPreset = "front"
-                        webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('front');", null)
-                    }
-                    QuickViewButton("Back", isSelected = currentPreset == "back") {
-                        currentPreset = "back"
-                        webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('back');", null)
-                    }
-                    IconButton(
-                        onClick = {
-                            currentPreset = "front"
-                            webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('reset');", null)
-                        },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.RestartAlt,
-                            contentDescription = "Reset View",
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                        webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('reset');", null)
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RestartAlt,
+                        contentDescription = "Reset View",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            // Patient-Centric Quick-Focus Region Chips (Horizontal Scrollable)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                QuickFocusChip("Full Body", isSelected = currentPreset == "front") {
+                    currentPreset = "front"
+                    webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('front');", null)
+                }
+                QuickFocusChip("Back View", isSelected = currentPreset == "back") {
+                    currentPreset = "back"
+                    webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('back');", null)
+                }
+                QuickFocusChip("Head & Neck", isSelected = currentPreset == "head_neck") {
+                    currentPreset = "head_neck"
+                    webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('head_neck');", null)
+                }
+                QuickFocusChip("Torso & Spine", isSelected = currentPreset == "torso_spine") {
+                    currentPreset = "torso_spine"
+                    webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('torso_spine');", null)
+                }
+                QuickFocusChip("Legs & Feet", isSelected = currentPreset == "legs_feet") {
+                    currentPreset = "legs_feet"
+                    webViewRef?.evaluateJavascript("if (window.setCameraPreset) window.setCameraPreset('legs_feet');", null)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Hardware-Accelerated 3D WebGL Viewport
             Box(
@@ -211,7 +219,7 @@ fun Anatomical3DViewer(
 }
 
 @Composable
-private fun QuickViewButton(
+private fun QuickFocusChip(
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit
@@ -219,7 +227,7 @@ private fun QuickViewButton(
     FilterChip(
         selected = isSelected,
         onClick = onClick,
-        label = { Text(text = label, fontSize = 11.sp) },
+        label = { Text(text = label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal) },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = TealPrimary.copy(alpha = 0.2f),
             selectedLabelColor = TealPrimary
@@ -227,12 +235,6 @@ private fun QuickViewButton(
         modifier = Modifier.height(28.dp)
     )
 }
-
-@kotlinx.serialization.Serializable
-private data class PainPointJsonPayload(
-    val region: String,
-    val intensity: Int
-)
 
 @SuppressLint("SetJavaScriptEnabled")
 private fun create3DWebView(
