@@ -278,6 +278,9 @@ fun PainMapScreen(
                 onSelectRegion = { region ->
                     onAction(PainMapUiAction.SelectRegion(region))
                 },
+                onSnapshotCaptured = { snapshot ->
+                    onAction(PainMapUiAction.UpdateMapSnapshot(snapshot))
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)

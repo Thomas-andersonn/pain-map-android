@@ -25,9 +25,10 @@ class AiTriageRepositoryImpl(
 
     override suspend fun analyzePainPoints(
         painPoints: List<PainPoint>,
-        userNotes: String
+        userNotes: String,
+        mapSnapshotBase64: String?
     ): Result<ClinicalTriageReport> = withContext(ioDispatcher) {
-        val result = geminiService.generateTriage(painPoints, userNotes)
+        val result = geminiService.generateTriage(painPoints, userNotes, mapSnapshotBase64)
         result.map { dto ->
             val report = TriageMapper.mapToDomain(dto, painPoints)
             _latestReport.value = report

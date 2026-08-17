@@ -21,8 +21,9 @@ data class PainMapUiState(
     val toolMode: PaintToolMode = PaintToolMode.ROTATE,
     val brushIntensity: Int = 5,
 
-    // Persistent Sessions & Follow-Up Q&A
+    // Persistent Sessions, Multimodal 3D Snapshots & Follow-Up Q&A
     val currentSessionId: String? = null,
+    val latestMapSnapshot: String? = null,
     val sessionsList: List<PainAssessmentSession> = emptyList(),
     val chatHistory: List<ChatMessage> = emptyList(),
     val isAskingFollowUp: Boolean = false

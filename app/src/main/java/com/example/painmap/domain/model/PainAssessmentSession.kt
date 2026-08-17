@@ -9,5 +9,6 @@ data class PainAssessmentSession(
     val timestamp: Long = System.currentTimeMillis(),
     val painPoints: List<PainPoint> = emptyList(),
     val triageReport: ClinicalTriageReport? = null,
-    val chatHistory: List<ChatMessage> = emptyList()
+    val chatHistory: List<ChatMessage> = emptyList(),
+    val mapSnapshotBase64: String? = null
 )

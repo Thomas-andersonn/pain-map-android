@@ -81,11 +81,16 @@ import com.example.painmap.ui.theme.SeverityMedium
 import com.example.painmap.ui.theme.TealLight
 import com.example.painmap.ui.theme.TealPrimary
 
+import androidx.compose.material.icons.filled.ViewInAr
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TriageResultScreen(
     report: ClinicalTriageReport?,
     chatHistory: List<ChatMessage> = emptyList(),
+    mapSnapshotBase64: String? = null,
     isAskingFollowUp: Boolean = false,
     onSendFollowUp: (String) -> Unit = {},
     onNavigateBackToMap: () -> Unit,
@@ -231,6 +236,67 @@ fun TriageResultScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                             )
+                        }
+                    }
+                }
+
+                // 2. Multimodal 3D Visual Map Snapshot Card
+                if (!mapSnapshotBase64.isNullOrBlank()) {
+                    val mapBitmap = remember(mapSnapshotBase64) {
+                        try {
+                            val cleanStr = if (mapSnapshotBase64.contains(",")) {
+                                mapSnapshotBase64.substringAfter(",")
+                            } else {
+                                mapSnapshotBase64
+                            }
+                            val decodedBytes = android.util.Base64.decode(cleanStr, android.util.Base64.DEFAULT)
+                            android.graphics.BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)?.asImageBitmap()
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+
+                    if (mapBitmap != null) {
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.outlinedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                TealPrimary.copy(alpha = 0.35f)
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ViewInAr,
+                                        contentDescription = null,
+                                        tint = TealPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "3D Pain Heatmap Analyzed by Gemini 3.7 Flash",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Image(
+                                    bitmap = mapBitmap,
+                                    contentDescription = "3D Anatomical Pain Map",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(220.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFF0F172A)),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                )
+                            }
                         }
                     }
                 }

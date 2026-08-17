@@ -66,6 +66,7 @@ fun PainMapNavHost(
             TriageResultScreen(
                 report = uiState.latestTriageReport,
                 chatHistory = uiState.chatHistory,
+                mapSnapshotBase64 = uiState.latestMapSnapshot,
                 isAskingFollowUp = uiState.isAskingFollowUp,
                 onSendFollowUp = { question ->
                     viewModel.onAction(PainMapUiAction.SendFollowUpQuestion(question))

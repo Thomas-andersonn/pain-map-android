@@ -183,9 +183,10 @@
 
           const targetScale = 1.70 / size.y;
           modelGroup.scale.set(targetScale, targetScale, targetScale);
+          modelGroup.rotation.y = -Math.PI / 2;
           modelGroup.position.y = -box.min.y * targetScale;
-          modelGroup.position.x = -center.x * targetScale;
-          modelGroup.position.z = -center.z * targetScale;
+          modelGroup.position.x = -center.z * targetScale;
+          modelGroup.position.z = center.x * targetScale;
 
           modelGroup.traverse((child) => {
             if (child.isMesh) {
@@ -484,7 +485,8 @@
      * to clinical AnatomicalRegion.
      */
     function mapCoordinateToAnatomicalRegion(x, y, z) {
-      const isLeft = (x > 0.005);
+      // Viewer perspective: x < -0.005 is Left, x > 0.005 is Right
+      const isLeft = (x < -0.005);
       const isBack = (z < 0.0);
 
       // Head & Face & TMJ (Y: 1.50 - 1.75)
@@ -493,18 +495,18 @@
         return 'HEAD';
       }
 
-      // Neck & Cervical Spine (Y: 1.38 - 1.50)
-      if (y >= 1.38) return 'NECK_CERVICAL';
+      // Neck & Cervical Spine (Y: 1.40 - 1.50)
+      if (y >= 1.40) return 'NECK_CERVICAL';
 
-      // Upper Torso / Shoulders / Chest (Y: 1.15 - 1.38)
-      if (y >= 1.15) {
+      // Upper Torso / Shoulders / Chest (Y: 1.18 - 1.40)
+      if (y >= 1.18) {
         if (Math.abs(x) > 0.16) {
           return isLeft ? 'SHOULDER_LEFT' : 'SHOULDER_RIGHT';
         }
         return isBack ? 'UPPER_BACK' : 'CHEST_THORACIC';
       }
 
-      // Mid Torso / Abdomen / Lumbar Spine / Arms (Y: 0.90 - 1.15)
+      // Mid Torso / Abdomen / Lumbar Spine / Arms (Y: 0.90 - 1.18)
       if (y >= 0.90) {
         if (Math.abs(x) > 0.18) {
           if (y < 1.05) {
@@ -515,33 +517,33 @@
         if (isBack) {
           return 'LOWER_BACK_LUMBAR';
         }
-        return y > 1.00 ? 'ABDOMEN' : 'PELVIS_HIPS';
+        return y > 1.02 ? 'ABDOMEN' : 'PELVIS_HIPS';
       }
 
-      // Pelvis / Hips / Hands (Y: 0.75 - 0.90)
-      if (y >= 0.75) {
+      // Pelvis / Hips / Hands (Y: 0.76 - 0.90)
+      if (y >= 0.76) {
         if (Math.abs(x) > 0.22) {
           return isLeft ? 'WRIST_HAND_LEFT' : 'WRIST_HAND_RIGHT';
         }
         return isLeft ? 'HIP_LEFT' : 'HIP_RIGHT';
       }
 
-      // Thighs / Quads / Hamstrings (Y: 0.45 - 0.75)
-      if (y >= 0.45) {
+      // Thighs / Quads / Hamstrings (Y: 0.54 - 0.76)
+      if (y >= 0.54) {
         return isLeft ? 'THIGH_QUAD_LEFT' : 'THIGH_QUAD_RIGHT';
       }
 
-      // Knees (Y: 0.35 - 0.45)
-      if (y >= 0.35) {
+      // Knees / Patella / Popliteal Fossa (Y: 0.44 - 0.54)
+      if (y >= 0.44) {
         return isLeft ? 'KNEE_LEFT' : 'KNEE_RIGHT';
       }
 
-      // Calves / Shins / Achilles (Y: 0.14 - 0.35)
-      if (y >= 0.14) {
+      // Calves / Shins / Achilles Tendon (Y: 0.10 - 0.44)
+      if (y >= 0.10) {
         return isLeft ? 'CALF_SHIN_LEFT' : 'CALF_SHIN_RIGHT';
       }
 
-      // Ankles / Feet / Plantar Fascia / Toes (Y < 0.14)
+      // Ankles / Feet / Plantar Fascia / Toes (Y < 0.10)
       return isLeft ? 'ANKLE_FOOT_LEFT' : 'ANKLE_FOOT_RIGHT';
     }
 
@@ -579,6 +581,21 @@
     }
 
     // Exposed methods for Android Kotlin Bridge
+    window.captureMapSnapshot = function() {
+      if (!renderer || !scene || !camera) return null;
+      try {
+        renderer.render(scene, camera);
+        const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.85);
+        if (window.AndroidBridge && window.AndroidBridge.onSnapshotCaptured) {
+          window.AndroidBridge.onSnapshotCaptured(dataUrl);
+        }
+        return dataUrl;
+      } catch (err) {
+        console.error('Error capturing snapshot:', err);
+        return null;
+      }
+    };
+
     window.restorePaintedPoints = function(pointsJson) {
       if (!bodyMesh || !paintCtx) return;
       try {

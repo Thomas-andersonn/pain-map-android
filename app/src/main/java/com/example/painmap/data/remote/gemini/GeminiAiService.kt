@@ -1,5 +1,8 @@
 package com.example.painmap.data.remote.gemini
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import com.example.painmap.BuildConfig
 import com.example.painmap.data.remote.dto.GeminiTriageDto
 import com.example.painmap.domain.model.ChatMessage
@@ -9,6 +12,7 @@ import com.example.painmap.domain.model.PainDuration
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.domain.model.PainType
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.content
 import com.google.ai.client.generativeai.type.generationConfig
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -54,9 +58,25 @@ class GeminiAiService(
         }
     }
 
+    private fun decodeBase64Bitmap(base64Str: String?): Bitmap? {
+        if (base64Str.isNullOrBlank()) return null
+        return try {
+            val cleanStr = if (base64Str.contains(",")) {
+                base64Str.substringAfter(",")
+            } else {
+                base64Str
+            }
+            val decodedBytes = Base64.decode(cleanStr, Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     suspend fun generateTriage(
         painPoints: List<PainPoint>,
-        userNotes: String = ""
+        userNotes: String = "",
+        mapSnapshotBase64: String? = null
     ): Result<GeminiTriageDto> = withContext(ioDispatcher) {
         try {
             if (painPoints.isEmpty()) {
@@ -67,8 +87,18 @@ class GeminiAiService(
 
             val model = generativeModel
             if (model != null) {
-                val prompt = buildClinicalPrompt(painPoints, userNotes)
-                val response = model.generateContent(prompt)
+                val prompt = buildClinicalPrompt(painPoints, userNotes, hasImage = !mapSnapshotBase64.isNullOrBlank())
+                val bitmap = decodeBase64Bitmap(mapSnapshotBase64)
+
+                val response = if (bitmap != null) {
+                    val inputContent = content {
+                        image(bitmap)
+                        text(prompt)
+                    }
+                    model.generateContent(inputContent)
+                } else {
+                    model.generateContent(prompt)
+                }
                 val responseText = response.text ?: ""
 
                 val extractedJson = extractJson(responseText)
@@ -95,7 +125,17 @@ class GeminiAiService(
             val model = generativeChatModel
             if (model != null) {
                 val prompt = buildFollowUpPrompt(session, question)
-                val response = model.generateContent(prompt)
+                val bitmap = decodeBase64Bitmap(session.mapSnapshotBase64)
+
+                val response = if (bitmap != null) {
+                    val inputContent = content {
+                        image(bitmap)
+                        text(prompt)
+                    }
+                    model.generateContent(inputContent)
+                } else {
+                    model.generateContent(prompt)
+                }
                 val text = response.text?.trim() ?: ""
                 if (text.isNotBlank()) {
                     return@withContext Result.success(text)
@@ -110,7 +150,11 @@ class GeminiAiService(
         }
     }
 
-    private fun buildClinicalPrompt(painPoints: List<PainPoint>, userNotes: String): String {
+    private fun buildClinicalPrompt(
+        painPoints: List<PainPoint>,
+        userNotes: String,
+        hasImage: Boolean
+    ): String {
         val painSummary = painPoints.joinToString(separator = "\n") { point ->
             "- Region: ${point.region.displayName} (${point.region.category.label}), " +
                     "Intensity: ${point.intensity}/10, " +
@@ -120,8 +164,18 @@ class GeminiAiService(
                     if (point.notes.isNotBlank()) ", Notes: ${point.notes}" else ""
         }
 
+        val visualInstruction = if (hasImage) {
+            """
+            VISUAL 3D BODY MAP SNAPSHOT ATTACHED:
+            An exact 3D visual screenshot of the patient's musculoskeletal pain heatmap is attached above.
+            Carefully inspect the visual distribution of the painted areas (e.g. unilateral vs bilateral asymmetry, radiating bands, joint line localization, myofascial trigger points, and proximal vs distal kinetic chain involvement).
+            """.trimIndent()
+        } else ""
+
         return """
             You are PainMapAI, a clinical triage assistant specializing strictly in diagnosing and assessing the root causes of Joint and Muscle Pain (musculoskeletal biomechanics, tendinopathy, ligamentous stress, postural imbalances, myofascial trigger points, and joint capsule strain).
+            
+            $visualInstruction
             
             Patient Anatomical Joint & Muscle Pain Points:
             $painSummary
@@ -163,99 +217,93 @@ class GeminiAiService(
         return """
             You are PainMapAI, a clinical musculoskeletal triage assistant specializing in Joint & Muscle Pain, biomechanics, kinetic chain root causes, and safe physical therapy mobility.
             
-            PATIENT PAIN PROFILE:
+            PATIENT PAIN PROFILE & 3D BODY MAP:
             $painSummary
             
             INITIAL CLINICAL TRIAGE SYNTHESIS:
             $reportSummary
             
-            ${if (historyText.isNotBlank()) "CONVERSATION HISTORY:\n$historyText\n" else ""}
+            CONVERSATION HISTORY:
+            $historyText
             
-            PATIENT FOLLOW-UP QUESTION:
+            PATIENT'S FOLLOW-UP QUESTION:
             "$question"
             
-            Provide a clear, empathetic, and clinically precise answer directly addressing the patient's question based on their anatomical pain locations and joint biomechanics. Keep paragraphs concise, action-oriented, and reassuring. If suggesting exercises or stretches, explain how they relieve tension safely without overloading inflamed joints.
+            INSTRUCTIONS FOR RESPONSE:
+            - Provide a concise, clear, and reassuring clinical explanation focused strictly on joint & muscle root causes, movement mechanics, and non-invasive relief.
+            - Answer the specific question directly.
+            - Offer 1-2 practical self-care suggestions (e.g. gentle active-assisted range of motion, ergonomic adjustments, relative rest).
+            - Keep the tone professional, empathetic, and evidence-informed.
+            - Limit response to 2-3 short, highly informative paragraphs.
         """.trimIndent()
     }
 
-    private fun extractJson(rawText: String): String {
-        val trimmed = rawText.trim()
-        val startIndex = trimmed.indexOf('{')
-        val endIndex = trimmed.lastIndexOf('}')
-        return if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
-            trimmed.substring(startIndex, endIndex + 1)
-        } else {
-            ""
+    private fun extractJson(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            return trimmed
         }
+        val match = Regex("""\{[\s\S]*\}""").find(trimmed)
+        return match?.value ?: ""
     }
 
+    /**
+     * Local clinical synthesis fallback for offline / test environments.
+     */
     private fun synthesizeClinicalTriage(
         painPoints: List<PainPoint>,
         userNotes: String
     ): GeminiTriageDto {
-        val maxIntensity = painPoints.maxOfOrNull { it.intensity } ?: 5
-        val regions = painPoints.map { it.region.displayName }
-        val sensationTypes = painPoints.flatMap { it.painTypes }.distinct()
-        val hasChronic = painPoints.any { it.duration == PainDuration.CHRONIC }
-        val hasSevere = maxIntensity >= 8
+        val maxIntensity = painPoints.maxOfOrNull { it.intensity } ?: 1
+        val hasSeverePain = maxIntensity >= 8
+        val hasShooting = painPoints.any { pt -> pt.painTypes.contains(PainType.SHOOTING) }
+        val hasStiffness = painPoints.any { pt -> pt.painTypes.contains(PainType.STIFFNESS) }
+        val hasChronic = painPoints.any { pt -> pt.duration == PainDuration.CHRONIC }
 
         val urgency = when {
-            hasSevere -> "HIGH"
-            maxIntensity >= 5 -> "MODERATE"
-            hasChronic -> "MODERATE"
-            else -> "LOW"
+            hasSeverePain || (hasShooting && maxIntensity >= 7) -> "HIGH"
+            maxIntensity >= 5 || hasShooting || hasStiffness -> "MODERATE"
+            hasChronic -> "LOW"
+            else -> "ROUTINE"
         }
 
-        val regionNames = regions.joinToString(", ")
-        val sensationNames = sensationTypes.joinToString(", ") { it.displayName }
+        val regionNames = painPoints.joinToString { it.region.displayName }
 
-        val assessment = buildString {
-            append("Anatomical pain mapping identified in $regionNames with peak intensity of $maxIntensity/10. ")
-            if (sensationNames.isNotBlank()) {
-                append("Reported sensations include $sensationNames. ")
-            }
-            if (hasSevere) {
-                append("Severe discomfort noted; evaluate joint articulation and tendon load with a specialist. ")
-            } else if (hasChronic) {
-                append("Chronic duration indicates persistent joint loading, muscle tightness, or postural compensation. ")
-            } else {
-                append("Presentation aligns with acute musculoskeletal strain or joint overuse. ")
-            }
-            if (userNotes.isNotBlank()) {
-                append("Patient notes: $userNotes")
-            }
+        val conditions = mutableListOf<String>()
+        if (painPoints.any { it.region.name.contains("KNEE") || it.region.name.contains("HIP") || it.region.name.contains("ANKLE") }) {
+            conditions.add("Lower Kinetic Chain Joint Overload or Tendinopathy")
+        }
+        if (painPoints.any { it.region.name.contains("SHOULDER") || it.region.name.contains("NECK") || it.region.name.contains("BACK") }) {
+            conditions.add("Postural Strain & Upper Quadrant Myofascial Dysregulation")
+        }
+        if (hasShooting) {
+            conditions.add("Peripheral Nerve Traction or Radicular Irritation")
+        }
+        if (conditions.isEmpty()) {
+            conditions.add("Localized Acute Musculoskeletal Soft-Tissue Fatigue")
         }
 
-        val potentialConditions = mutableListOf<String>()
-        if (regions.any { it.contains("Spine", true) || it.contains("Back", true) }) {
-            potentialConditions.add("Lumbar / Thoracic Strain & Postural Muscle Imbalance")
-        }
-        if (regions.any { it.contains("Knee", true) || it.contains("Hip", true) || it.contains("Ankle", true) }) {
-            potentialConditions.add("Lower Kinetic Chain Joint Overload or Tendinopathy")
-        }
-        if (regions.any { it.contains("Shoulder", true) || it.contains("Neck", true) }) {
-            potentialConditions.add("Cervicothoracic Facet Strain or Rotator Cuff Tendon Stress")
-        }
-        if (potentialConditions.isEmpty()) {
-            potentialConditions.add("Localized Myofascial Trigger Point Strain")
-            potentialConditions.add("Joint Capsule Overuse")
-        }
+        val specialties = listOf("Physical Therapy", "Orthopedic Physical Therapy", "Sports Medicine")
+
+        val questions = listOf(
+            "Does the discomfort increase with specific end-range movements or repetitive loading?",
+            "Are symptoms worse in the morning upon waking or after sustained physical activity?",
+            "Have you noticed any joint stiffness, clicking, or reduced range of motion?"
+        )
+
+        val selfCare = listOf(
+            "Apply relative rest and avoid high-impact aggravation for 48-72 hours.",
+            "Incorporate gentle non-weightbearing range-of-motion movements to preserve joint lubricity.",
+            "Consider ice or warm compresses based on whether active swelling is present."
+        )
 
         return GeminiTriageDto(
             urgencyLevel = urgency,
-            preliminaryAssessment = assessment,
-            potentialConditionsToDiscuss = potentialConditions,
-            recommendedSpecialties = listOf("Physical Therapy", "Orthopedic Physical Therapy", "Sports Medicine"),
-            suggestedClinicalQuestions = listOf(
-                "Does pain worsen with weight-bearing movements, prolonged sitting, or morning stiffness?",
-                "Are there specific joint positions that provide immediate relief?",
-                "Has there been previous joint injury or compensatory movement patterns?"
-            ),
-            selfCareSuggestions = listOf(
-                "Gentle active range of motion and joint deloading exercises within pain-free limits.",
-                "Apply ice for acute throbbing flares (15-20 min) or gentle heat for chronic muscle stiffness.",
-                "Avoid aggressive end-range loading or painful provocative movements."
-            )
+            preliminaryAssessment = "Anatomical pain mapping identified in $regionNames with peak intensity of $maxIntensity/10. Presentation aligns with musculoskeletal strain, kinetic chain imbalance, or joint capsule stress.",
+            potentialConditionsToDiscuss = conditions,
+            recommendedSpecialties = specialties,
+            suggestedClinicalQuestions = questions,
+            selfCareSuggestions = selfCare
         )
     }
 
@@ -263,7 +311,11 @@ class GeminiAiService(
         session: PainAssessmentSession,
         question: String
     ): String {
-        val regionNames = session.painPoints.joinToString(", ") { it.region.displayName }
-        return "Based on your mapped pain points ($regionNames), it is recommended to focus on gentle mobility and avoiding positions that provoke sharp discomfort. For persistent joint or muscle stiffness, consider gentle deloading stretches and consult a physical therapist for a personalized kinetic chain assessment."
+        val region = session.painPoints.firstOrNull()?.region?.displayName ?: "the affected joint and muscle areas"
+        val maxIntensity = session.painPoints.maxOfOrNull { it.intensity } ?: 5
+
+        return "Regarding your question about $region (pain intensity $maxIntensity/10), symptoms in this region often stem from kinetic chain overload, localized tendon stress, or muscular compensation.\n\n" +
+                "For safe self-management, focus on gentle active mobility without pushing into sharp pain. Maintaining hydration, gentle heat before movement, and relative rest can help reduce inflammation.\n\n" +
+                "If symptoms persist or intensify with weight bearing, an evaluation with a physical therapist is recommended."
     }
 }

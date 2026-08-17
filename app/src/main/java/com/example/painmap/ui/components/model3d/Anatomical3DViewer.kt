@@ -76,6 +76,7 @@ fun Anatomical3DViewer(
     onPaintRegion: (AnatomicalRegion, Int, Float?, Float?, Float?, Float?, Float?) -> Unit,
     onEraseRegion: (AnatomicalRegion) -> Unit,
     onSelectRegion: (AnatomicalRegion) -> Unit,
+    onSnapshotCaptured: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
@@ -116,6 +117,10 @@ fun Anatomical3DViewer(
                 val escapedJson = jsonArray.toString()
                 webViewRef?.evaluateJavascript("if (window.restorePaintedPoints) window.restorePaintedPoints($escapedJson);", null)
             }
+            // Trigger snapshot after paint updates
+            webViewRef?.postDelayed({
+                webViewRef?.evaluateJavascript("if (window.captureMapSnapshot) window.captureMapSnapshot();", null)
+            }, 250)
         }
     }
 
@@ -286,7 +291,8 @@ fun Anatomical3DViewer(
                             },
                             onReady = {
                                 isModelReady = true
-                            }
+                            },
+                            onSnapshot = onSnapshotCaptured
                         ).also { webViewRef = it }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -320,7 +326,8 @@ private fun create3DWebView(
     onPaint: (String, Int, Float?, Float?, Float?, Float?, Float?) -> Unit,
     onErase: (String) -> Unit,
     onSelect: (String) -> Unit,
-    onReady: () -> Unit
+    onReady: () -> Unit,
+    onSnapshot: (String) -> Unit
 ): WebView {
     val assetLoader = WebViewAssetLoader.Builder()
         .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -395,6 +402,11 @@ private fun create3DWebView(
             @JavascriptInterface
             fun onModelReady() {
                 post { onReady() }
+            }
+
+            @JavascriptInterface
+            fun onSnapshotCaptured(dataUrl: String) {
+                post { onSnapshot(dataUrl) }
             }
         }, "AndroidBridge")
 

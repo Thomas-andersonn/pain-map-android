@@ -13,7 +13,8 @@ interface AiTriageRepository {
      */
     suspend fun analyzePainPoints(
         painPoints: List<PainPoint>,
-        userNotes: String = ""
+        userNotes: String = "",
+        mapSnapshotBase64: String? = null
     ): Result<ClinicalTriageReport>
 
     /**

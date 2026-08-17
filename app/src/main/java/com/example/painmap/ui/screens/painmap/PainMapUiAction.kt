@@ -34,6 +34,9 @@ sealed interface PainMapUiAction {
     ) : PainMapUiAction
     data class EraseRegion(val region: AnatomicalRegion) : PainMapUiAction
 
+    // Multimodal 3D Map Snapshot
+    data class UpdateMapSnapshot(val base64Image: String) : PainMapUiAction
+
     // Persistent Session & Follow-Up Q&A Actions
     data class SendFollowUpQuestion(val question: String) : PainMapUiAction
     data class LoadSession(val sessionId: String, val onLoaded: () -> Unit = {}) : PainMapUiAction

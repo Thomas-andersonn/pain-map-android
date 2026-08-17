@@ -7,7 +7,6 @@ import com.example.painmap.domain.model.ChatMessage
 import com.example.painmap.domain.model.MessageSender
 import com.example.painmap.domain.model.PainAssessmentSession
 import com.example.painmap.domain.model.PainPoint
-import com.example.painmap.domain.model.PainType
 import com.example.painmap.domain.repository.AiTriageRepository
 import com.example.painmap.domain.repository.PainRecordRepository
 import com.example.painmap.ui.components.model3d.PaintToolMode
@@ -28,18 +27,18 @@ class PainMapViewModel(
 
     val uiState: StateFlow<PainMapUiState> = combine(
         painRecordRepository.getActivePainPoints(),
-        painRecordRepository.getAllSessions(),
         aiTriageRepository.getLatestTriageReport(),
+        painRecordRepository.getAllSessions(),
         _localUiState
-    ) { activePoints, sessions, latestReport, localState ->
+    ) { activePoints, triageReport, sessions, localState ->
         localState.copy(
             activePainPoints = activePoints,
-            sessionsList = sessions,
-            latestTriageReport = latestReport ?: localState.latestTriageReport
+            latestTriageReport = localState.latestTriageReport ?: triageReport,
+            sessionsList = sessions
         )
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = SharingStarted.WhileSubscribed(5000),
         initialValue = PainMapUiState()
     )
 
@@ -65,6 +64,7 @@ class PainMapViewModel(
                 action.z
             )
             is PainMapUiAction.EraseRegion -> handleEraseRegion(action.region)
+            is PainMapUiAction.UpdateMapSnapshot -> handleUpdateMapSnapshot(action.base64Image)
             is PainMapUiAction.SendFollowUpQuestion -> handleSendFollowUpQuestion(action.question)
             is PainMapUiAction.LoadSession -> handleLoadSession(action.sessionId, action.onLoaded)
             is PainMapUiAction.DeleteSession -> handleDeleteSession(action.sessionId)
@@ -133,7 +133,10 @@ class PainMapViewModel(
             _localUiState.update {
                 it.copy(
                     selectedRegion = null,
-                    currentEditingPoint = null
+                    currentEditingPoint = null,
+                    isLoggingSheetOpen = false,
+                    latestTriageReport = null,
+                    latestMapSnapshot = null
                 )
             }
         }
@@ -144,17 +147,17 @@ class PainMapViewModel(
     }
 
     private fun handleSetBrushIntensity(intensity: Int) {
-        _localUiState.update { it.copy(brushIntensity = intensity.coerceIn(1, 10)) }
+        _localUiState.update { it.copy(brushIntensity = intensity) }
     }
 
     private fun handlePaintRegion(
         region: AnatomicalRegion,
         intensity: Int,
-        uvX: Float? = null,
-        uvY: Float? = null,
-        x: Float? = null,
-        y: Float? = null,
-        z: Float? = null
+        uvX: Float?,
+        uvY: Float?,
+        x: Float?,
+        y: Float?,
+        z: Float?
     ) {
         viewModelScope.launch {
             val existing = uiState.value.activePainPoints.find { it.region == region }
@@ -172,8 +175,7 @@ class PainMapViewModel(
                 uvY = uvY,
                 x = x ?: region.defaultX,
                 y = y ?: region.defaultY,
-                z = z ?: region.defaultZ,
-                painTypes = setOf(PainType.ACHING)
+                z = z ?: region.defaultZ
             )
             painRecordRepository.savePainPoint(pointToSave)
         }
@@ -188,6 +190,10 @@ class PainMapViewModel(
         }
     }
 
+    private fun handleUpdateMapSnapshot(base64Image: String) {
+        _localUiState.update { it.copy(latestMapSnapshot = base64Image) }
+    }
+
     private fun handleRequestAiTriage(userNotes: String, onSuccess: () -> Unit) {
         val currentPoints = uiState.value.activePainPoints
         if (currentPoints.isEmpty()) {
@@ -199,13 +205,19 @@ class PainMapViewModel(
 
         viewModelScope.launch {
             _localUiState.update { it.copy(isTriageLoading = true, errorMessage = null) }
-            val result = aiTriageRepository.analyzePainPoints(currentPoints, userNotes)
+            val currentSnapshot = uiState.value.latestMapSnapshot
+            val result = aiTriageRepository.analyzePainPoints(
+                painPoints = currentPoints,
+                userNotes = userNotes,
+                mapSnapshotBase64 = currentSnapshot
+            )
             result.fold(
                 onSuccess = { report ->
                     val newSession = PainAssessmentSession(
                         painPoints = currentPoints,
                         triageReport = report,
-                        chatHistory = emptyList()
+                        chatHistory = emptyList(),
+                        mapSnapshotBase64 = currentSnapshot
                     )
                     painRecordRepository.saveSession(newSession)
 
@@ -214,7 +226,8 @@ class PainMapViewModel(
                             isTriageLoading = false,
                             currentSessionId = newSession.id,
                             chatHistory = emptyList(),
-                            latestTriageReport = report
+                            latestTriageReport = report,
+                            latestMapSnapshot = currentSnapshot
                         )
                     }
                     onSuccess()
@@ -235,6 +248,7 @@ class PainMapViewModel(
         if (question.isBlank()) return
         val currentReport = uiState.value.latestTriageReport ?: return
         val sessionId = uiState.value.currentSessionId
+        val currentSnapshot = uiState.value.latestMapSnapshot
 
         val userMessage = ChatMessage(
             sender = MessageSender.USER,
@@ -245,7 +259,8 @@ class PainMapViewModel(
             id = sessionId ?: "current_session",
             painPoints = uiState.value.activePainPoints,
             triageReport = currentReport,
-            chatHistory = uiState.value.chatHistory + userMessage
+            chatHistory = uiState.value.chatHistory + userMessage,
+            mapSnapshotBase64 = currentSnapshot
         )
 
         _localUiState.update {
@@ -305,7 +320,8 @@ class PainMapViewModel(
                     it.copy(
                         currentSessionId = session.id,
                         chatHistory = session.chatHistory,
-                        latestTriageReport = session.triageReport
+                        latestTriageReport = session.triageReport,
+                        latestMapSnapshot = session.mapSnapshotBase64
                     )
                 }
                 onLoaded()
