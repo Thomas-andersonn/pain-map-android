@@ -1,6 +1,7 @@
 package com.example.painmap.ui.screens.painmap
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,9 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ClearAll
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Rotate90DegreesCcw
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -52,8 +56,9 @@ import androidx.compose.ui.unit.sp
 import com.example.painmap.domain.model.AnatomicalRegion
 import com.example.painmap.domain.model.BodyCategory
 import com.example.painmap.domain.model.PainPoint
-import com.example.painmap.ui.components.AnatomicalBodyViewer
 import com.example.painmap.ui.components.PainLogBottomSheet
+import com.example.painmap.ui.components.model3d.Anatomical3DViewer
+import com.example.painmap.ui.components.model3d.PaintToolMode
 import com.example.painmap.ui.theme.SeverityCritical
 import com.example.painmap.ui.theme.SeverityHigh
 import com.example.painmap.ui.theme.SeverityLow
@@ -85,12 +90,12 @@ fun PainMapScreen(
                 title = {
                     Column {
                         Text(
-                            text = "3D Pain Mapping",
-                            style = MaterialTheme.typography.titleLarge,
+                            text = "3D Pain Mapping & Painting",
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${uiState.activePainPoints.size} joint/muscle point(s) recorded",
+                            text = "${uiState.activePainPoints.size} highlighted pain zone(s)",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -122,7 +127,7 @@ fun PainMapScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            // Bottom Action Bar: Active Points Summary & Gemini CTA
+            // Bottom Action Bar: Active Points Badges & Gemini AI CTA
             Surface(
                 tonalElevation = 8.dp,
                 color = MaterialTheme.colorScheme.surface,
@@ -130,11 +135,10 @@ fun PainMapScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                         .fillMaxWidth()
                 ) {
                     if (uiState.activePainPoints.isNotEmpty()) {
-                        // Quick Scroll of active pain points
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -191,7 +195,7 @@ fun PainMapScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (uiState.activePainPoints.isEmpty()) "Tap a Joint/Muscle to Begin" else "Analyze with Gemini AI (${uiState.activePainPoints.size})",
+                                text = if (uiState.activePainPoints.isEmpty()) "Paint or Tap a Muscle/Joint" else "Analyze with Gemini AI (${uiState.activePainPoints.size})",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -207,40 +211,111 @@ fun PainMapScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 14.dp, vertical = 6.dp)
         ) {
-            // Quick Region Category Chips
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+            // 1. Tool Mode Selector (Rotate / Paint Brush / Erase)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(BodyCategory.entries) { cat ->
+                PaintToolMode.entries.forEach { mode ->
+                    val isSelected = uiState.toolMode == mode
                     FilterChip(
-                        selected = false,
-                        onClick = {
-                            // Find primary region for this category and open
-                            val defaultRegion = when (cat) {
-                                BodyCategory.HEAD_NECK -> AnatomicalRegion.NECK_CERVICAL
-                                BodyCategory.TORSO -> AnatomicalRegion.LOWER_BACK_LUMBAR
-                                BodyCategory.UPPER_LIMB -> AnatomicalRegion.SHOULDER_RIGHT
-                                BodyCategory.LOWER_LIMB -> AnatomicalRegion.KNEE_RIGHT
-                            }
-                            onAction(PainMapUiAction.SelectRegion(defaultRegion))
+                        selected = isSelected,
+                        onClick = { onAction(PainMapUiAction.SetToolMode(mode)) },
+                        label = {
+                            Text(
+                                text = mode.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
                         },
-                        label = { Text(text = "+ ${cat.label}", fontSize = 12.sp) },
+                        leadingIcon = {
+                            val icon = when (mode) {
+                                PaintToolMode.ROTATE -> Icons.Default.Sync
+                                PaintToolMode.PAINT -> Icons.Default.Brush
+                                PaintToolMode.ERASE -> Icons.Default.CleaningServices
+                            }
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
                         colors = FilterChipDefaults.filterChipColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                            selectedContainerColor = TealPrimary.copy(alpha = 0.2f),
+                            selectedLabelColor = TealPrimary
+                        ),
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // 2. Pain Brush Intensity Selector (Visible in PAINT mode)
+            if (uiState.toolMode == PaintToolMode.PAINT) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Brush:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-            // 3D Body Map Viewport
-            AnatomicalBodyViewer(
+                    listOf(
+                        2 to ("Mild (2)" to SeverityLow),
+                        5 to ("Mod (5)" to SeverityMedium),
+                        7 to ("Sev (7)" to SeverityHigh),
+                        9 to ("Crit (9)" to SeverityCritical)
+                    ).forEach { (intensity, labelAndColor) ->
+                        val (label, color) = labelAndColor
+                        val isSelected = uiState.brushIntensity == intensity
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (isSelected) color.copy(alpha = 0.25f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
+                                .border(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) color else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { onAction(PainMapUiAction.SetBrushIntensity(intensity)) }
+                                .padding(vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) color else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 3. Interactive 3D Rotatable & Paintable Anatomical Viewport
+            Anatomical3DViewer(
                 activePainPoints = uiState.activePainPoints,
                 selectedRegion = uiState.selectedRegion,
+                toolMode = uiState.toolMode,
+                brushIntensity = uiState.brushIntensity,
+                onPaintRegion = { region, intensity ->
+                    onAction(PainMapUiAction.PaintRegion(region, intensity))
+                },
+                onEraseRegion = { region ->
+                    onAction(PainMapUiAction.EraseRegion(region))
+                },
                 onSelectRegion = { region ->
                     onAction(PainMapUiAction.SelectRegion(region))
                 },
@@ -250,7 +325,7 @@ fun PainMapScreen(
             )
         }
 
-        // Material 3 Modal Bottom Sheet for granular pain logging
+        // Granular Pain Logging Bottom Sheet
         if (uiState.isLoggingSheetOpen && uiState.currentEditingPoint != null) {
             PainLogBottomSheet(
                 painPoint = uiState.currentEditingPoint,

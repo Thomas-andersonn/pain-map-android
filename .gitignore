@@ -20,3 +20,4 @@ local.properties
 *.dex
 .idea/
 .kotlin/
+app/src/main/assets/models/*.glb

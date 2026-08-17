@@ -185,4 +185,56 @@ class PainMapViewModelTest {
         advanceUntilIdle()
         assertEquals(null, viewModel.uiState.value.errorMessage)
     }
+
+    @Test
+    fun setToolMode_updatesToolMode() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onAction(PainMapUiAction.SetToolMode(com.example.painmap.ui.components.model3d.PaintToolMode.PAINT))
+        advanceUntilIdle()
+        assertEquals(com.example.painmap.ui.components.model3d.PaintToolMode.PAINT, viewModel.uiState.value.toolMode)
+    }
+
+    @Test
+    fun setBrushIntensity_updatesBrushIntensity() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onAction(PainMapUiAction.SetBrushIntensity(8))
+        advanceUntilIdle()
+        assertEquals(8, viewModel.uiState.value.brushIntensity)
+    }
+
+    @Test
+    fun paintRegion_createsAndPersistsPainPoint() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onAction(PainMapUiAction.PaintRegion(AnatomicalRegion.LOWER_BACK_LUMBAR, 7))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.activePainPoints.size)
+        assertEquals(AnatomicalRegion.LOWER_BACK_LUMBAR, state.activePainPoints[0].region)
+        assertEquals(7, state.activePainPoints[0].intensity)
+    }
+
+    @Test
+    fun eraseRegion_removesPainPoint() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+
+        viewModel.onAction(PainMapUiAction.PaintRegion(AnatomicalRegion.KNEE_LEFT, 6))
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.activePainPoints.size)
+
+        viewModel.onAction(PainMapUiAction.EraseRegion(AnatomicalRegion.KNEE_LEFT))
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.activePainPoints.isEmpty())
+    }
 }

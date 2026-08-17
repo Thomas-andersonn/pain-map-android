@@ -2,6 +2,7 @@ package com.example.painmap.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -148,7 +149,8 @@ fun MainDashboardScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(240.dp),
+                        .height(240.dp)
+                        .clickable { onStartAssessment() },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface

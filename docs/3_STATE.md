@@ -33,3 +33,4 @@
 - [x] `TASK-005` [UI Engineer]: Implement 3D Anatomical Body Map Screen with Front/Back rotation, touch raycasting, and heatmap markers.
 - [x] `TASK-006` [UI Engineer]: Implement Pain Logging Material 3 BottomSheet (VAS Slider, Sensation FilterChips, Duration, Triggers).
 - [x] `TASK-007` [UI Engineer]: Implement AI Clinical Triage Screen (Urgency badges, potential conditions, doctor summary report).
+- [x] `TASK-009` [UI Engineer]: Implement 3D Rotatable Model & Anatomical Section Painting Tool with variable intensity brushes and real-time heatmap shaders.
