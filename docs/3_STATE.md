@@ -14,11 +14,12 @@
   - `TASK-009`: 3D Rotatable Model & Anatomical Section Painting Tool
   - `TASK-010`: Z-Anatomy 3D Musculoskeletal Model & Painting Engine
   - `TASK-011`: Hardware-Accelerated 3D GLB Mesh Renderer & Limb Isolation Fix
-  - `TASK-012`: Complete Full-Body 3D Anatomy (Head-to-Toe) with Pinpoint Dynamic UV Paint Brush Engine & Quick-Focus Controls
+  - `TASK-012`: Complete Full-Body 3D Anatomy (Head-to-Toe) with Pinpoint Dynamic UV Paint Brush Engine
+  - `TASK-013`: Unified Touch & Gesture Disambiguation Engine (Zero Mode Switching: Tap-to-Paint, Re-tap to Erase, Drag to Orbit)
 
 ## Invariants & Rules
 - Architecture: MVVM + UDF (Unidirectional Data Flow)
-- Dynamic UV Texture Canvas Painting: 1024x1024 offscreen canvas mapped to PBR emissiveMap
-- Quick-Focus Presets: Full Body, Back View, Head & Neck, Torso & Spine, Legs & Feet, Reset
+- Unified Touch Engine: Disambiguates < 350ms tap from drag/swipe.
+- Spatial Index: Tapping on clean skin paints; re-tapping on existing spot erases/toggles off.
 - Quality Check: QA & Reviewer Subagent sign-off required for all tasks.
 - Continuous Device Verification: Screenshots verified across physical Pixel 10 and emulator.

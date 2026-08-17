@@ -213,91 +213,50 @@ fun PainMapScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 14.dp, vertical = 6.dp)
         ) {
-            // 1. Tool Mode Selector (Rotate / Paint Brush / Erase)
+            // 1. Pain Intensity Selector Bar
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                PaintToolMode.entries.forEach { mode ->
-                    val isSelected = uiState.toolMode == mode
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { onAction(PainMapUiAction.SetToolMode(mode)) },
-                        label = {
-                            Text(
-                                text = mode.displayName,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        leadingIcon = {
-                            val icon = when (mode) {
-                                PaintToolMode.ROTATE -> Icons.Default.Sync
-                                PaintToolMode.PAINT -> Icons.Default.Brush
-                                PaintToolMode.ERASE -> Icons.Default.CleaningServices
-                            }
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = TealPrimary.copy(alpha = 0.2f),
-                            selectedLabelColor = TealPrimary
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
+                Text(
+                    text = "Pain Level:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-            // 2. Pain Brush Intensity Selector (Visible in PAINT mode)
-            if (uiState.toolMode == PaintToolMode.PAINT) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "Brush:",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    listOf(
-                        2 to ("Mild (2)" to SeverityLow),
-                        5 to ("Mod (5)" to SeverityMedium),
-                        7 to ("Sev (7)" to SeverityHigh),
-                        9 to ("Crit (9)" to SeverityCritical)
-                    ).forEach { (intensity, labelAndColor) ->
-                        val (label, color) = labelAndColor
-                        val isSelected = uiState.brushIntensity == intensity
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isSelected) color.copy(alpha = 0.25f)
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                )
-                                .border(
-                                    width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) color else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .clickable { onAction(PainMapUiAction.SetBrushIntensity(intensity)) }
-                                .padding(vertical = 5.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) color else MaterialTheme.colorScheme.onSurface
+                listOf(
+                    2 to ("Mild (2)" to SeverityLow),
+                    5 to ("Mod (5)" to SeverityMedium),
+                    7 to ("Sev (7)" to SeverityHigh),
+                    9 to ("Crit (9)" to SeverityCritical)
+                ).forEach { (intensity, labelAndColor) ->
+                    val (label, color) = labelAndColor
+                    val isSelected = uiState.brushIntensity == intensity
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (isSelected) color.copy(alpha = 0.25f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                             )
-                        }
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) color else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable { onAction(PainMapUiAction.SetBrushIntensity(intensity)) }
+                            .padding(vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) color else MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }

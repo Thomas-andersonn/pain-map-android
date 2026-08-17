@@ -1,11 +1,11 @@
-# Active Task: TASK-012
+# Active Task: TASK-013
 - **Persona:** [UI Engineer]
-- **Goal:** Implement Full-Body (Head-to-Toe) 3D Model with Pinpoint UV Paint Brush Engine and Patient-Centric Focus Controls.
+- **Goal:** Implement Unified Touch & Gesture Engine (Zero Mode Switching: Tap-to-Paint, Re-tap to Erase, Drag to Orbit) & Streamlined Patient UI.
 - **Inputs:** `docs/1_PRD.md`, `docs/2_ARCHITECTURE.md`, `docs/3_STATE.md`, `docs/4_CONVENTIONS.md`, `implementation_plan.md`
-- **Constraints:** Full Head-to-Toe anatomical coverage, millimeter-precise UV canvas brush painting, quick focus presets, 60fps hardware acceleration, continuous device screenshots.
+- **Constraints:** Zero mode buttons, gesture disambiguation (< 250ms tap vs > 8px drag), toggle-erase on re-tap, MVVM + UDF invariants, continuous device screenshots.
 - **Acceptance Criteria:**
-  - [ ] Complete full-body model with Head/Face/Neck, Torso/Arms/Hands, Legs/Ankles/Feet
-  - [ ] Dynamic UV Texture Canvas Painting engine with localized brush strokes and erase capability
-  - [ ] Quick-Focus Camera presets (Head/Neck, Torso/Spine, Legs/Feet, Front, Back, Reset)
+  - [ ] Tap on body marks localized pain point; re-tap erases it
+  - [ ] Drag orbits 3D model 360°; pinch zooms in/out
+  - [ ] Removed mode toggle buttons; added prominent intensity bar and patient gesture hints
   - [ ] All unit tests pass with zero errors via `[QA & Reviewer]` subagent
-  - [ ] Live device screenshots captured and verified from user perspective
+  - [ ] Live device screenshots captured and verified

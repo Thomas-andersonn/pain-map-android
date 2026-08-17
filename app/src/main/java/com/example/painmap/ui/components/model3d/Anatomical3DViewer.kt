@@ -11,6 +11,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,10 +23,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -43,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,8 +59,10 @@ import com.example.painmap.ui.theme.TealLight
 import com.example.painmap.ui.theme.TealPrimary
 
 /**
- * Hardware-Accelerated Complete Full-Body 3D Anatomical Pain Mapper (Head-to-Toe)
- * with Dynamic UV Canvas Texture Pinpoint Brush Painting and Patient-Centric Focus Controls.
+ * Unified Touch & Gesture Anatomical Pain Mapper:
+ * - Tap to Paint localized trigger spot / Re-tap to Erase
+ * - Drag to Rotate 360° Orbit
+ * - Pinch to Zoom In/Out
  */
 @Composable
 fun Anatomical3DViewer(
@@ -70,16 +77,6 @@ fun Anatomical3DViewer(
 ) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var currentPreset by remember { mutableStateOf("front") }
-
-    // Sync tool mode with 3D engine
-    LaunchedEffect(toolMode) {
-        val modeStr = when (toolMode) {
-            PaintToolMode.ROTATE -> "ROTATE"
-            PaintToolMode.PAINT -> "PAINT"
-            PaintToolMode.ERASE -> "ERASE"
-        }
-        webViewRef?.evaluateJavascript("if (window.setToolMode) window.setToolMode('$modeStr');", null)
-    }
 
     // Sync brush intensity with 3D engine
     LaunchedEffect(brushIntensity) {
@@ -101,7 +98,7 @@ fun Anatomical3DViewer(
                 .fillMaxSize()
                 .padding(14.dp)
         ) {
-            // Top Bar: 3D Model Header & Reset
+            // Top Bar: Model Header & Reset
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -119,14 +116,15 @@ fun Anatomical3DViewer(
                     )
                     Column {
                         Text(
-                            text = "Full-Body 3D Anatomy",
+                            text = "3D Interactive Body",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Head-to-Toe Pinpoint Pain Mapper",
+                            text = "Tap body to mark / unmark • Drag to rotate",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = TealPrimary,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -149,7 +147,7 @@ fun Anatomical3DViewer(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Patient-Centric Quick-Focus Region Chips (Horizontal Scrollable)
+            // Quick-Focus Region Chips (Horizontal Scrollable)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -178,7 +176,7 @@ fun Anatomical3DViewer(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Hardware-Accelerated 3D WebGL Viewport
             Box(

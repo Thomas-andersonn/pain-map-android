@@ -74,12 +74,13 @@
   <script>
     let scene, camera, renderer, controls, bodyMesh, modelGroup;
     let raycaster, mouse;
-    let toolMode = 'ROTATE'; // 'ROTATE', 'PAINT', 'ERASE'
     let brushIntensity = 5;
-    let brushRadiusPx = 22; // Pinpoint localized brush radius
+    let brushRadiusPx = 24; // Localized pinpoint brush radius
     let paintCanvas, paintCtx, paintTexture;
     const CANVAS_SIZE = 1024;
-    const activePainRegions = new Map(); // region -> intensity
+    
+    // Spatial index of active painted spots: Array of { id, cx, cy, intensity, region, radius }
+    let paintedSpots = [];
 
     const SEVERITY_COLORS = {
       low: { hex: '#10B981', rgb: 'rgba(16, 185, 129,' },
@@ -110,7 +111,7 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
 
-      // 3. Orbit Controls
+      // 3. Orbit Controls (Always enabled for smooth rotation/zoom)
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
@@ -151,9 +152,9 @@
       // 7. Load Full-Body (Head-to-Toe) Model
       loadFullBodyModel();
 
-      // 8. Event Listeners
+      // 8. Event Listeners for Unified Touch Engine
       window.addEventListener('resize', onWindowResize);
-      setupTouchInteractions();
+      setupUnifiedTouchEngine();
 
       animate();
     }
@@ -180,7 +181,7 @@
         (gltf) => {
           modelGroup = gltf.scene;
 
-          // Compute bounding box and normalize scale to fit complete figure from head to toe (~1.75 units)
+          // Compute bounding box and normalize scale to fit complete figure from head to toe (~1.72 units)
           const box = new THREE.Box3().setFromObject(modelGroup);
           const size = box.getSize(new THREE.Vector3());
           const center = box.getCenter(new THREE.Vector3());
@@ -223,41 +224,48 @@
       );
     }
 
-    function setupTouchInteractions() {
+    /**
+     * Unified Touch & Gesture Disambiguation Engine:
+     * - Tap (< 250ms, < 10px move): Toggle Paint (Tap to mark spot, Re-tap on existing spot to erase)
+     * - Drag (> 10px move): 360° Orbit Rotation
+     * - Pinch: Zoom in/out
+     */
+    function setupUnifiedTouchEngine() {
       let touchStartX = 0, touchStartY = 0;
-      let isMoved = false;
+      let touchStartTime = 0;
 
       window.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1) {
           touchStartX = e.touches[0].clientX;
           touchStartY = e.touches[0].clientY;
-          isMoved = false;
-          if (toolMode === 'PAINT' || toolMode === 'ERASE') {
-            handleRaycast(e.touches[0].clientX, e.touches[0].clientY);
-          }
+          touchStartTime = performance.now();
         }
-      }, { passive: false });
-
-      window.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 1) {
-          const dx = Math.abs(e.touches[0].clientX - touchStartX);
-          const dy = Math.abs(e.touches[0].clientY - touchStartY);
-          if (dx > 6 || dy > 6) isMoved = true;
-
-          if (toolMode === 'PAINT' || toolMode === 'ERASE') {
-            handleRaycast(e.touches[0].clientX, e.touches[0].clientY);
-          }
-        }
-      }, { passive: false });
+      }, { passive: true });
 
       window.addEventListener('touchend', (e) => {
-        if (!isMoved && e.changedTouches.length === 1) {
-          handleRaycast(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        if (e.changedTouches.length === 1) {
+          const touchEndX = e.changedTouches[0].clientX;
+          const touchEndY = e.changedTouches[0].clientY;
+          const dx = Math.abs(touchEndX - touchStartX);
+          const dy = Math.abs(touchEndY - touchStartY);
+          const elapsed = performance.now() - touchStartTime;
+
+          // Disambiguate: Tap if minimal finger movement and short touch duration
+          if (dx < 12 && dy < 12 && elapsed < 350) {
+            handleTap(touchEndX, touchEndY);
+          }
+        }
+      }, { passive: true });
+
+      // Fallback for mouse click in desktop/simulator
+      window.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON') {
+          handleTap(e.clientX, e.clientY);
         }
       });
     }
 
-    function handleRaycast(clientX, clientY) {
+    function handleTap(clientX, clientY) {
       if (!bodyMesh) return;
 
       mouse.x = (clientX / window.innerWidth) * 2 - 1;
@@ -271,59 +279,73 @@
         const uv = hit.uv;
         const hitPoint = hit.point;
 
-        // Map 3D hit point coordinate to AnatomicalRegion
-        const region = mapCoordinateToAnatomicalRegion(hitPoint.x, hitPoint.y, hitPoint.z);
-
         if (uv) {
           const cx = uv.x * CANVAS_SIZE;
           const cy = (1 - uv.y) * CANVAS_SIZE;
 
-          if (toolMode === 'PAINT') {
-            drawPaintSpot(cx, cy, brushIntensity);
-            activePainRegions.set(region, brushIntensity);
-            if (window.AndroidBridge && window.AndroidBridge.onMeshPainted) {
-              window.AndroidBridge.onMeshPainted(region, brushIntensity);
-            }
-          } else if (toolMode === 'ERASE') {
-            drawEraseSpot(cx, cy);
-            activePainRegions.delete(region);
-            if (window.AndroidBridge && window.AndroidBridge.onMeshErased) {
-              window.AndroidBridge.onMeshErased(region);
+          // Map 3D spatial coordinate to AnatomicalRegion
+          const region = mapCoordinateToAnatomicalRegion(hitPoint.x, hitPoint.y, hitPoint.z);
+
+          // Check if this tap hits near an existing painted spot (within 35px)
+          const existingSpotIndex = paintedSpots.findIndex(spot => {
+            const dist = Math.hypot(spot.cx - cx, spot.cy - cy);
+            return dist < (spot.radius * 1.6);
+          });
+
+          if (existingSpotIndex !== -1) {
+            // Re-tap on existing spot -> ERASE / TOGGLE OFF
+            const erasedSpot = paintedSpots.splice(existingSpotIndex, 1)[0];
+            redrawCanvas();
+
+            // Check if there are any remaining spots in this region
+            const hasMoreInRegion = paintedSpots.some(s => s.region === erasedSpot.region);
+            if (!hasMoreInRegion && window.AndroidBridge && window.AndroidBridge.onMeshErased) {
+              window.AndroidBridge.onMeshErased(erasedSpot.region);
             }
           } else {
-            if (window.AndroidBridge && window.AndroidBridge.onMeshSelected) {
-              window.AndroidBridge.onMeshSelected(region);
+            // Tap on clean skin -> PAINT NEW SPOT
+            const newSpot = {
+              id: Date.now() + Math.random(),
+              cx: cx,
+              cy: cy,
+              intensity: brushIntensity,
+              region: region,
+              radius: brushRadiusPx
+            };
+            paintedSpots.push(newSpot);
+            renderSpotOnCanvas(newSpot);
+
+            if (window.AndroidBridge && window.AndroidBridge.onMeshPainted) {
+              window.AndroidBridge.onMeshPainted(region, brushIntensity);
             }
           }
         }
       }
     }
 
-    function drawPaintSpot(x, y, intensity) {
-      const color = getSeverityColor(intensity);
-      const rad = brushRadiusPx;
+    function renderSpotOnCanvas(spot) {
+      const color = getSeverityColor(spot.intensity);
+      const rad = spot.radius;
 
       paintCtx.globalCompositeOperation = 'source-over';
-      const grad = paintCtx.createRadialGradient(x, y, 0, x, y, rad);
+      const grad = paintCtx.createRadialGradient(spot.cx, spot.cy, 0, spot.cx, spot.cy, rad);
       grad.addColorStop(0, color.rgb + '0.95)');
       grad.addColorStop(0.6, color.rgb + '0.75)');
       grad.addColorStop(1, color.rgb + '0.0)');
 
       paintCtx.fillStyle = grad;
       paintCtx.beginPath();
-      paintCtx.arc(x, y, rad, 0, Math.PI * 2);
+      paintCtx.arc(spot.cx, spot.cy, rad, 0, Math.PI * 2);
       paintCtx.fill();
 
       paintTexture.needsUpdate = true;
     }
 
-    function drawEraseSpot(x, y) {
-      const rad = brushRadiusPx * 1.5;
-      paintCtx.globalCompositeOperation = 'destination-out';
-      paintCtx.beginPath();
-      paintCtx.arc(x, y, rad, 0, Math.PI * 2);
-      paintCtx.fill();
-
+    function redrawCanvas() {
+      paintCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      for (const spot of paintedSpots) {
+        renderSpotOnCanvas(spot);
+      }
       paintTexture.needsUpdate = true;
     }
 
@@ -398,17 +420,8 @@
     }
 
     // Exposed methods for Android Kotlin Bridge
-    window.setToolMode = function(mode) {
-      toolMode = mode;
-      controls.enabled = (mode === 'ROTATE');
-    };
-
     window.setBrushIntensity = function(val) {
       brushIntensity = parseInt(val) || 5;
-    };
-
-    window.setBrushRadius = function(val) {
-      brushRadiusPx = parseInt(val) || 22;
     };
 
     window.setCameraPreset = function(preset) {
@@ -435,9 +448,9 @@
     };
 
     window.clearAllPaint = function() {
+      paintedSpots = [];
       paintCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
       paintTexture.needsUpdate = true;
-      activePainRegions.clear();
     };
 
     function hideLoading() {
