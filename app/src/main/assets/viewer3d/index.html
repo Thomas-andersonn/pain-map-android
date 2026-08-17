@@ -74,13 +74,19 @@
   <script>
     let scene, camera, renderer, controls, bodyMesh, modelGroup;
     let raycaster, mouse;
+    let interactionMode = 'ORBIT'; // 'ORBIT' (Tap & Drag to rotate) or 'STROKE' (Continuous paint stroke)
     let brushIntensity = 5;
-    let brushRadiusPx = 24; // Localized pinpoint brush radius
+    const BASE_BRUSH_RADIUS = 24;
     let paintCanvas, paintCtx, paintTexture;
     const CANVAS_SIZE = 1024;
     
-    // Spatial index of active painted spots: Array of { id, cx, cy, intensity, region, radius }
+    // Spatial index of active painted spots
     let paintedSpots = [];
+    
+    // Camera animation state
+    let targetCamPos = null;
+    let targetControlsTarget = null;
+    let animProgress = 1.0;
 
     const SEVERITY_COLORS = {
       low: { hex: '#10B981', rgb: 'rgba(16, 185, 129,' },
@@ -111,15 +117,16 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
 
-      // 3. Orbit Controls (Always enabled for smooth rotation/zoom)
+      // 3. Orbit Controls with Centering & Constraints
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
       controls.target.set(0, 0.85, 0);
-      controls.minDistance = 0.5;
-      controls.maxDistance = 4.5;
+      controls.minDistance = 0.35; // Allows deep zoom into small joints
+      controls.maxDistance = 3.5;  // Prevents zooming out too far
       controls.maxPolarAngle = Math.PI * 0.95;
       controls.minPolarAngle = Math.PI * 0.05;
+      controls.enablePan = false;   // Keeps body centered in viewport
 
       // 4. Studio PBR Lighting
       const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.9);
@@ -149,7 +156,7 @@
       raycaster = new THREE.Raycaster();
       mouse = new THREE.Vector2();
 
-      // 7. Load Full-Body (Head-to-Toe) Model
+      // 7. Load Full-Body Model
       loadFullBodyModel();
 
       // 8. Event Listeners for Unified Touch Engine
@@ -181,7 +188,6 @@
         (gltf) => {
           modelGroup = gltf.scene;
 
-          // Compute bounding box and normalize scale to fit complete figure from head to toe (~1.72 units)
           const box = new THREE.Box3().setFromObject(modelGroup);
           const size = box.getSize(new THREE.Vector3());
           const center = box.getCenter(new THREE.Vector3());
@@ -189,7 +195,6 @@
           const targetScale = 1.72 / (size.y || 1.72);
           modelGroup.scale.setScalar(targetScale);
 
-          // Center model at origin
           modelGroup.position.x = -center.x * targetScale;
           modelGroup.position.y = -center.y * targetScale + 0.85;
           modelGroup.position.z = -center.z * targetScale;
@@ -200,7 +205,6 @@
               child.castShadow = true;
               child.receiveShadow = true;
 
-              // Medical Atlas PBR Material with Dynamic UV Emissive Paint Map
               child.material = new THREE.MeshStandardMaterial({
                 color: 0x94A3B8,
                 roughness: 0.45,
@@ -225,20 +229,57 @@
     }
 
     /**
-     * Unified Touch & Gesture Disambiguation Engine:
-     * - Tap (< 250ms, < 10px move): Toggle Paint (Tap to mark spot, Re-tap on existing spot to erase)
-     * - Drag (> 10px move): 360° Orbit Rotation
-     * - Pinch: Zoom in/out
+     * Compute current zoom-scaled brush radius in UV canvas pixels.
+     * When zoomed in close, brush shrinks proportionally for micro-precision.
+     */
+    function getDynamicBrushRadius() {
+      const dist = camera.position.distanceTo(controls.target);
+      const zoomFactor = Math.min(Math.max(dist / 2.3, 0.20), 1.25);
+      return Math.round(BASE_BRUSH_RADIUS * zoomFactor);
+    }
+
+    /**
+     * Unified Touch Engine:
+     * - Pinch: Raycasts to pinch midpoint so zooming focuses directly on touched joint
+     * - Double-Tap: Smoothly centers camera and zooms into the tapped joint
+     * - Tap: Paints localized spot / Re-tap erases spot
+     * - Drag in ORBIT mode: 360° rotation
+     * - Drag in STROKE mode: Continuous multi-section fluid stroke painting
      */
     function setupUnifiedTouchEngine() {
       let touchStartX = 0, touchStartY = 0;
       let touchStartTime = 0;
+      let lastTapTime = 0;
+      let lastTapX = 0, lastTapY = 0;
+      let isDragging = false;
 
       window.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1) {
           touchStartX = e.touches[0].clientX;
           touchStartY = e.touches[0].clientY;
           touchStartTime = performance.now();
+          isDragging = false;
+
+          if (interactionMode === 'STROKE') {
+            paintAtScreenPoint(e.touches[0].clientX, e.touches[0].clientY);
+          }
+        } else if (e.touches.length === 2) {
+          // Pinch start: center target towards midpoint of the two fingers
+          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          focusTargetAtScreenPoint(midX, midY, false);
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+          const dx = Math.abs(e.touches[0].clientX - touchStartX);
+          const dy = Math.abs(e.touches[0].clientY - touchStartY);
+          if (dx > 8 || dy > 8) isDragging = true;
+
+          if (interactionMode === 'STROKE') {
+            paintAtScreenPoint(e.touches[0].clientX, e.touches[0].clientY);
+          }
         }
       }, { passive: true });
 
@@ -250,22 +291,30 @@
           const dy = Math.abs(touchEndY - touchStartY);
           const elapsed = performance.now() - touchStartTime;
 
-          // Disambiguate: Tap if minimal finger movement and short touch duration
+          // If minimal movement and short duration: it is a Tap!
           if (dx < 12 && dy < 12 && elapsed < 350) {
-            handleTap(touchEndX, touchEndY);
+            const now = performance.now();
+            const tapDist = Math.hypot(touchEndX - lastTapX, touchEndY - lastTapY);
+
+            if (now - lastTapTime < 320 && tapDist < 30) {
+              // Double-Tap Detected: Zoom & Focus onto tapped joint!
+              focusTargetAtScreenPoint(touchEndX, touchEndY, true);
+              lastTapTime = 0;
+            } else {
+              // Single Tap: Paint / Toggle Erase
+              if (interactionMode === 'ORBIT') {
+                handleSingleTap(touchEndX, touchEndY);
+              }
+              lastTapTime = now;
+              lastTapX = touchEndX;
+              lastTapY = touchEndY;
+            }
           }
         }
       }, { passive: true });
-
-      // Fallback for mouse click in desktop/simulator
-      window.addEventListener('click', (e) => {
-        if (e.target.tagName !== 'BUTTON') {
-          handleTap(e.clientX, e.clientY);
-        }
-      });
     }
 
-    function handleTap(clientX, clientY) {
+    function handleSingleTap(clientX, clientY) {
       if (!bodyMesh) return;
 
       mouse.x = (clientX / window.innerWidth) * 2 - 1;
@@ -282,14 +331,13 @@
         if (uv) {
           const cx = uv.x * CANVAS_SIZE;
           const cy = (1 - uv.y) * CANVAS_SIZE;
-
-          // Map 3D spatial coordinate to AnatomicalRegion
+          const currentRadius = getDynamicBrushRadius();
           const region = mapCoordinateToAnatomicalRegion(hitPoint.x, hitPoint.y, hitPoint.z);
 
-          // Check if this tap hits near an existing painted spot (within 35px)
+          // Check if this tap hits near an existing painted spot
           const existingSpotIndex = paintedSpots.findIndex(spot => {
             const dist = Math.hypot(spot.cx - cx, spot.cy - cy);
-            return dist < (spot.radius * 1.6);
+            return dist < (spot.radius * 1.5);
           });
 
           if (existingSpotIndex !== -1) {
@@ -297,20 +345,19 @@
             const erasedSpot = paintedSpots.splice(existingSpotIndex, 1)[0];
             redrawCanvas();
 
-            // Check if there are any remaining spots in this region
             const hasMoreInRegion = paintedSpots.some(s => s.region === erasedSpot.region);
             if (!hasMoreInRegion && window.AndroidBridge && window.AndroidBridge.onMeshErased) {
               window.AndroidBridge.onMeshErased(erasedSpot.region);
             }
           } else {
-            // Tap on clean skin -> PAINT NEW SPOT
+            // Tap on clean skin -> PAINT NEW SPOT with Zoom-Invariant precision
             const newSpot = {
               id: Date.now() + Math.random(),
               cx: cx,
               cy: cy,
               intensity: brushIntensity,
               region: region,
-              radius: brushRadiusPx
+              radius: currentRadius
             };
             paintedSpots.push(newSpot);
             renderSpotOnCanvas(newSpot);
@@ -323,6 +370,73 @@
       }
     }
 
+    function paintAtScreenPoint(clientX, clientY) {
+      if (!bodyMesh) return;
+
+      mouse.x = (clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(bodyMesh, true);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0];
+        const uv = hit.uv;
+        const hitPoint = hit.point;
+
+        if (uv) {
+          const cx = uv.x * CANVAS_SIZE;
+          const cy = (1 - uv.y) * CANVAS_SIZE;
+          const currentRadius = getDynamicBrushRadius();
+          const region = mapCoordinateToAnatomicalRegion(hitPoint.x, hitPoint.y, hitPoint.z);
+
+          const newSpot = {
+            id: Date.now() + Math.random(),
+            cx: cx,
+            cy: cy,
+            intensity: brushIntensity,
+            region: region,
+            radius: currentRadius
+          };
+          paintedSpots.push(newSpot);
+          renderSpotOnCanvas(newSpot);
+
+          if (window.AndroidBridge && window.AndroidBridge.onMeshPainted) {
+            window.AndroidBridge.onMeshPainted(region, brushIntensity);
+          }
+        }
+      }
+    }
+
+    /**
+     * Focuses controls.target directly onto the touched 3D surface point
+     */
+    function focusTargetAtScreenPoint(clientX, clientY, animateZoom) {
+      if (!bodyMesh) return;
+
+      mouse.x = (clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(bodyMesh, true);
+
+      if (intersects.length > 0) {
+        const hitPoint = intersects[0].point;
+
+        if (animateZoom) {
+          // Double tap smooth zoom: smoothly move camera target and close in
+          targetControlsTarget = new THREE.Vector3(hitPoint.x, hitPoint.y, hitPoint.z);
+          
+          const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+          targetCamPos = new THREE.Vector3().addVectors(targetControlsTarget, dir.multiplyScalar(0.95));
+          animProgress = 0.0;
+        } else {
+          // Subtle target tracking for pinch zoom
+          controls.target.lerp(new THREE.Vector3(hitPoint.x, hitPoint.y, hitPoint.z), 0.35);
+        }
+      }
+    }
+
     function renderSpotOnCanvas(spot) {
       const color = getSeverityColor(spot.intensity);
       const rad = spot.radius;
@@ -330,7 +444,7 @@
       paintCtx.globalCompositeOperation = 'source-over';
       const grad = paintCtx.createRadialGradient(spot.cx, spot.cy, 0, spot.cx, spot.cy, rad);
       grad.addColorStop(0, color.rgb + '0.95)');
-      grad.addColorStop(0.6, color.rgb + '0.75)');
+      grad.addColorStop(0.5, color.rgb + '0.75)');
       grad.addColorStop(1, color.rgb + '0.0)');
 
       paintCtx.fillStyle = grad;
@@ -420,11 +534,17 @@
     }
 
     // Exposed methods for Android Kotlin Bridge
+    window.setInteractionMode = function(mode) {
+      interactionMode = mode; // 'ORBIT' or 'STROKE'
+      controls.enabled = (mode === 'ORBIT');
+    };
+
     window.setBrushIntensity = function(val) {
       brushIntensity = parseInt(val) || 5;
     };
 
     window.setCameraPreset = function(preset) {
+      animProgress = 1.0;
       if (preset === 'front') {
         camera.position.set(0, 0.9, 2.3);
         controls.target.set(0, 0.85, 0);
@@ -469,6 +589,17 @@
 
     function animate() {
       requestAnimationFrame(animate);
+
+      // Smooth camera interpolation for double-tap zoom focus
+      if (animProgress < 1.0) {
+        animProgress += 0.06;
+        const t = Math.min(animProgress, 1.0);
+        const ease = t * (2 - t); // Ease out quad
+
+        if (targetCamPos) camera.position.lerp(targetCamPos, ease);
+        if (targetControlsTarget) controls.target.lerp(targetControlsTarget, ease);
+      }
+
       controls.update();
       renderer.render(scene, camera);
     }

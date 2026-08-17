@@ -16,10 +16,12 @@
   - `TASK-011`: Hardware-Accelerated 3D GLB Mesh Renderer & Limb Isolation Fix
   - `TASK-012`: Complete Full-Body 3D Anatomy (Head-to-Toe) with Pinpoint Dynamic UV Paint Brush Engine
   - `TASK-013`: Unified Touch & Gesture Disambiguation Engine (Zero Mode Switching: Tap-to-Paint, Re-tap to Erase, Drag to Orbit)
+  - `TASK-014`: Zoom-To-Point Precision Focus, Zoom-Invariant Brush Sizing, and Continuous Drag Stroke Painting
 
 ## Invariants & Rules
 - Architecture: MVVM + UDF (Unidirectional Data Flow)
-- Unified Touch Engine: Disambiguates < 350ms tap from drag/swipe.
-- Spatial Index: Tapping on clean skin paints; re-tapping on existing spot erases/toggles off.
+- Zoom Focus: Pinch-to-point focal centering; double-tap smoothly zooms and centers target joint/muscle.
+- Zoom-Invariant Brush: Brush size dynamically scales with camera distance, enabling millimeter-level pinpoint marking on zoomed joints.
+- Continuous Stroke: Dragging in Stroke mode draws fluid radiating pain tracks across multiple anatomical sections at 60 FPS.
 - Quality Check: QA & Reviewer Subagent sign-off required for all tasks.
 - Continuous Device Verification: Screenshots verified across physical Pixel 10 and emulator.

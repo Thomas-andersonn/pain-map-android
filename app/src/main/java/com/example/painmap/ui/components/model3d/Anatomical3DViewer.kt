@@ -25,11 +25,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -59,10 +59,10 @@ import com.example.painmap.ui.theme.TealLight
 import com.example.painmap.ui.theme.TealPrimary
 
 /**
- * Unified Touch & Gesture Anatomical Pain Mapper:
- * - Tap to Paint localized trigger spot / Re-tap to Erase
- * - Drag to Rotate 360° Orbit
- * - Pinch to Zoom In/Out
+ * Precision 3D Anatomical Pain Mapper with:
+ * - Pinch-To-Point Focal Centering & Double-Tap to Focus
+ * - Dynamic Zoom-Invariant Precision Brush
+ * - Continuous Drag Stroke Painting for Radiating Pain Bands
  */
 @Composable
 fun Anatomical3DViewer(
@@ -77,6 +77,12 @@ fun Anatomical3DViewer(
 ) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var currentPreset by remember { mutableStateOf("front") }
+    var currentInteractionMode by remember { mutableStateOf("ORBIT") } // "ORBIT" or "STROKE"
+
+    // Sync interaction mode with 3D engine
+    LaunchedEffect(currentInteractionMode) {
+        webViewRef?.evaluateJavascript("if (window.setInteractionMode) window.setInteractionMode('$currentInteractionMode');", null)
+    }
 
     // Sync brush intensity with 3D engine
     LaunchedEffect(brushIntensity) {
@@ -116,12 +122,12 @@ fun Anatomical3DViewer(
                     )
                     Column {
                         Text(
-                            text = "3D Interactive Body",
+                            text = "3D Precision Pain Mapper",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Tap body to mark / unmark • Drag to rotate",
+                            text = "Double-tap to focus • Drag to rotate or paint",
                             style = MaterialTheme.typography.bodySmall,
                             color = TealPrimary,
                             fontWeight = FontWeight.Medium
@@ -145,7 +151,48 @@ fun Anatomical3DViewer(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Interaction Mode Toggle (Rotate & Tap vs Continuous Stroke)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = currentInteractionMode == "ORBIT",
+                    onClick = { currentInteractionMode = "ORBIT" },
+                    label = {
+                        Text(
+                            text = "🖐️ Rotate & Tap Spot",
+                            fontSize = 12.sp,
+                            fontWeight = if (currentInteractionMode == "ORBIT") FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = TealPrimary.copy(alpha = 0.2f),
+                        selectedLabelColor = TealPrimary
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = currentInteractionMode == "STROKE",
+                    onClick = { currentInteractionMode = "STROKE" },
+                    label = {
+                        Text(
+                            text = "🖌️ Continuous Stroke",
+                            fontSize = 12.sp,
+                            fontWeight = if (currentInteractionMode == "STROKE") FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = TealPrimary.copy(alpha = 0.2f),
+                        selectedLabelColor = TealPrimary
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Quick-Focus Region Chips (Horizontal Scrollable)
             Row(

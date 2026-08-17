@@ -1,11 +1,11 @@
-# Active Task: TASK-013
+# Active Task: TASK-014
 - **Persona:** [UI Engineer]
-- **Goal:** Implement Unified Touch & Gesture Engine (Zero Mode Switching: Tap-to-Paint, Re-tap to Erase, Drag to Orbit) & Streamlined Patient UI.
+- **Goal:** Implement Zoom-To-Point Focus, Zoom-Invariant Precision Brush Sizing, and Continuous Drag Stroke Painting.
 - **Inputs:** `docs/1_PRD.md`, `docs/2_ARCHITECTURE.md`, `docs/3_STATE.md`, `docs/4_CONVENTIONS.md`, `implementation_plan.md`
-- **Constraints:** Zero mode buttons, gesture disambiguation (< 250ms tap vs > 8px drag), toggle-erase on re-tap, MVVM + UDF invariants, continuous device screenshots.
+- **Constraints:** Pinch-to-point focal centering, double-tap zoom focus, zoom-invariant brush radius, continuous drag stroke painting at 60fps, MVVM + UDF invariants, continuous device screenshots.
 - **Acceptance Criteria:**
-  - [ ] Tap on body marks localized pain point; re-tap erases it
-  - [ ] Drag orbits 3D model 360°; pinch zooms in/out
-  - [ ] Removed mode toggle buttons; added prominent intensity bar and patient gesture hints
+  - [ ] Pinch-to-zoom centers on touched body part; double-tap focuses on tapped region
+  - [ ] Zooming in scales down brush radius for micro-precise pinpoint painting
+  - [ ] Continuous drag stroke painting draws connected radiating lines across multiple sections
   - [ ] All unit tests pass with zero errors via `[QA & Reviewer]` subagent
   - [ ] Live device screenshots captured and verified
