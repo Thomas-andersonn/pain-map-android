@@ -3,6 +3,9 @@ package com.example.painmap.ui.screens.painmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.painmap.domain.model.AnatomicalRegion
+import com.example.painmap.domain.model.ChatMessage
+import com.example.painmap.domain.model.MessageSender
+import com.example.painmap.domain.model.PainAssessmentSession
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.domain.model.PainType
 import com.example.painmap.domain.repository.AiTriageRepository
@@ -16,9 +19,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/**
- * Central ViewModel managing Unidirectional Data Flow for 3D pain-mapping, section painting, and AI triage.
- */
 class PainMapViewModel(
     private val painRecordRepository: PainRecordRepository,
     private val aiTriageRepository: AiTriageRepository
@@ -27,13 +27,15 @@ class PainMapViewModel(
     private val _localUiState = MutableStateFlow(PainMapUiState())
 
     val uiState: StateFlow<PainMapUiState> = combine(
-        _localUiState,
         painRecordRepository.getActivePainPoints(),
-        aiTriageRepository.getLatestTriageReport()
-    ) { localState, activePoints, triageReport ->
+        painRecordRepository.getAllSessions(),
+        aiTriageRepository.getLatestTriageReport(),
+        _localUiState
+    ) { activePoints, sessions, latestReport, localState ->
         localState.copy(
             activePainPoints = activePoints,
-            latestTriageReport = triageReport
+            sessionsList = sessions,
+            latestTriageReport = latestReport ?: localState.latestTriageReport
         )
     }.stateIn(
         scope = viewModelScope,
@@ -55,16 +57,18 @@ class PainMapViewModel(
             is PainMapUiAction.SetBrushIntensity -> handleSetBrushIntensity(action.intensity)
             is PainMapUiAction.PaintRegion -> handlePaintRegion(action.region, action.intensity)
             is PainMapUiAction.EraseRegion -> handleEraseRegion(action.region)
+            is PainMapUiAction.SendFollowUpQuestion -> handleSendFollowUpQuestion(action.question)
+            is PainMapUiAction.LoadSession -> handleLoadSession(action.sessionId, action.onLoaded)
+            is PainMapUiAction.DeleteSession -> handleDeleteSession(action.sessionId)
         }
     }
 
     private fun handleSelectRegion(region: AnatomicalRegion) {
         val existingPoint = uiState.value.activePainPoints.find { it.region == region }
-        val pointToEdit = existingPoint ?: PainPoint(region = region)
         _localUiState.update {
             it.copy(
                 selectedRegion = region,
-                currentEditingPoint = pointToEdit,
+                currentEditingPoint = existingPoint ?: PainPoint(region = region),
                 isLoggingSheetOpen = true
             )
         }
@@ -73,9 +77,9 @@ class PainMapViewModel(
     private fun handleOpenLoggingSheet(initialPoint: PainPoint?) {
         _localUiState.update {
             it.copy(
-                selectedRegion = initialPoint?.region,
-                currentEditingPoint = initialPoint ?: PainPoint(region = AnatomicalRegion.NECK_CERVICAL),
-                isLoggingSheetOpen = true
+                isLoggingSheetOpen = true,
+                currentEditingPoint = initialPoint,
+                selectedRegion = initialPoint?.region
             )
         }
     }
@@ -170,8 +174,22 @@ class PainMapViewModel(
             _localUiState.update { it.copy(isTriageLoading = true, errorMessage = null) }
             val result = aiTriageRepository.analyzePainPoints(currentPoints, userNotes)
             result.fold(
-                onSuccess = {
-                    _localUiState.update { it.copy(isTriageLoading = false) }
+                onSuccess = { report ->
+                    val newSession = PainAssessmentSession(
+                        painPoints = currentPoints,
+                        triageReport = report,
+                        chatHistory = emptyList()
+                    )
+                    painRecordRepository.saveSession(newSession)
+
+                    _localUiState.update {
+                        it.copy(
+                            isTriageLoading = false,
+                            currentSessionId = newSession.id,
+                            chatHistory = emptyList(),
+                            latestTriageReport = report
+                        )
+                    }
                     onSuccess()
                 },
                 onFailure = { error ->
@@ -183,6 +201,94 @@ class PainMapViewModel(
                     }
                 }
             )
+        }
+    }
+
+    private fun handleSendFollowUpQuestion(question: String) {
+        if (question.isBlank()) return
+        val currentReport = uiState.value.latestTriageReport ?: return
+        val sessionId = uiState.value.currentSessionId
+
+        val userMessage = ChatMessage(
+            sender = MessageSender.USER,
+            message = question.trim()
+        )
+
+        val activeSession = PainAssessmentSession(
+            id = sessionId ?: "current_session",
+            painPoints = uiState.value.activePainPoints,
+            triageReport = currentReport,
+            chatHistory = uiState.value.chatHistory + userMessage
+        )
+
+        _localUiState.update {
+            it.copy(
+                chatHistory = it.chatHistory + userMessage,
+                isAskingFollowUp = true,
+                errorMessage = null
+            )
+        }
+
+        viewModelScope.launch {
+            if (sessionId != null) {
+                painRecordRepository.appendChatMessage(sessionId, userMessage)
+            }
+
+            val result = aiTriageRepository.askFollowUpQuestion(activeSession, question)
+            result.fold(
+                onSuccess = { aiMessage ->
+                    if (sessionId != null) {
+                        painRecordRepository.appendChatMessage(sessionId, aiMessage)
+                    }
+                    _localUiState.update {
+                        it.copy(
+                            chatHistory = it.chatHistory + aiMessage,
+                            isAskingFollowUp = false
+                        )
+                    }
+                },
+                onFailure = { err ->
+                    _localUiState.update {
+                        it.copy(
+                            isAskingFollowUp = false,
+                            errorMessage = err.message ?: "Failed to receive AI response."
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    private fun handleLoadSession(sessionId: String, onLoaded: () -> Unit) {
+        viewModelScope.launch {
+            val sessionResult = painRecordRepository.getSessionById(sessionId)
+            val session = sessionResult.getOrNull()
+            if (session != null) {
+                // Restore pain points to active view
+                painRecordRepository.clearActivePainPoints()
+                for (point in session.painPoints) {
+                    painRecordRepository.savePainPoint(point)
+                }
+
+                session.triageReport?.let {
+                    aiTriageRepository.saveTriageReport(it)
+                }
+
+                _localUiState.update {
+                    it.copy(
+                        currentSessionId = session.id,
+                        chatHistory = session.chatHistory,
+                        latestTriageReport = session.triageReport
+                    )
+                }
+                onLoaded()
+            }
+        }
+    }
+
+    private fun handleDeleteSession(sessionId: String) {
+        viewModelScope.launch {
+            painRecordRepository.deleteSession(sessionId)
         }
     }
 

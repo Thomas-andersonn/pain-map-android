@@ -2,6 +2,8 @@ package com.example.painmap.data.repository
 
 import com.example.painmap.data.remote.gemini.GeminiAiService
 import com.example.painmap.domain.model.AnatomicalRegion
+import com.example.painmap.domain.model.MessageSender
+import com.example.painmap.domain.model.PainAssessmentSession
 import com.example.painmap.domain.model.PainDuration
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.domain.model.PainType
@@ -96,5 +98,18 @@ class AiTriageRepositoryTest {
         assertEquals(testReport.id, latest?.id)
         assertEquals("Direct saved assessment", latest?.preliminaryAssessment)
     }
-}
 
+    @Test
+    fun askFollowUpQuestion_returnsAiChatMessage() = runBlocking {
+        val session = PainAssessmentSession(
+            painPoints = listOf(PainPoint(region = AnatomicalRegion.KNEE_RIGHT, intensity = 6))
+        )
+        val result = repository.askFollowUpQuestion(session, "What stretches should I do?")
+
+        assertTrue(result.isSuccess)
+        val msg = result.getOrNull()
+        assertNotNull(msg)
+        assertEquals(MessageSender.AI, msg?.sender)
+        assertTrue(msg?.message?.isNotBlank() == true)
+    }
+}

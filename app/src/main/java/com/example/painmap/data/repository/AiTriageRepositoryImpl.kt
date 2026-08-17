@@ -2,7 +2,10 @@ package com.example.painmap.data.repository
 
 import com.example.painmap.data.mapper.TriageMapper
 import com.example.painmap.data.remote.gemini.GeminiAiService
+import com.example.painmap.domain.model.ChatMessage
 import com.example.painmap.domain.model.ClinicalTriageReport
+import com.example.painmap.domain.model.MessageSender
+import com.example.painmap.domain.model.PainAssessmentSession
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.domain.repository.AiTriageRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -35,5 +38,18 @@ class AiTriageRepositoryImpl(
     override suspend fun saveTriageReport(report: ClinicalTriageReport): Result<Unit> = withContext(ioDispatcher) {
         _latestReport.value = report
         Result.success(Unit)
+    }
+
+    override suspend fun askFollowUpQuestion(
+        session: PainAssessmentSession,
+        question: String
+    ): Result<ChatMessage> = withContext(ioDispatcher) {
+        val result = geminiService.askFollowUpQuestion(session, question)
+        result.map { answerText ->
+            ChatMessage(
+                sender = MessageSender.AI,
+                message = answerText
+            )
+        }
     }
 }

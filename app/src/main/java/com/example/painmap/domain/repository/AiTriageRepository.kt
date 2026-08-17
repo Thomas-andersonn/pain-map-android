@@ -1,6 +1,8 @@
 package com.example.painmap.domain.repository
 
+import com.example.painmap.domain.model.ChatMessage
 import com.example.painmap.domain.model.ClinicalTriageReport
+import com.example.painmap.domain.model.PainAssessmentSession
 import com.example.painmap.domain.model.PainPoint
 import kotlinx.coroutines.flow.Flow
 
@@ -23,4 +25,12 @@ interface AiTriageRepository {
      * Saves or caches a generated triage report.
      */
     suspend fun saveTriageReport(report: ClinicalTriageReport): Result<Unit>
+
+    /**
+     * Sends a follow-up question to Gemini AI within the context of a pain assessment session.
+     */
+    suspend fun askFollowUpQuestion(
+        session: PainAssessmentSession,
+        question: String
+    ): Result<ChatMessage>
 }

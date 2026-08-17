@@ -18,7 +18,7 @@ import com.example.painmap.ui.theme.PainMapAITheme
 
 class MainActivity : ComponentActivity() {
 
-    private val painRecordRepository by lazy { PainRecordRepositoryImpl() }
+    private val painRecordRepository by lazy { PainRecordRepositoryImpl(applicationContext) }
     private val aiTriageRepository by lazy { AiTriageRepositoryImpl() }
 
     private val viewModel: PainMapViewModel by viewModels {

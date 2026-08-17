@@ -25,4 +25,9 @@ sealed interface PainMapUiAction {
     data class SetBrushIntensity(val intensity: Int) : PainMapUiAction
     data class PaintRegion(val region: AnatomicalRegion, val intensity: Int) : PainMapUiAction
     data class EraseRegion(val region: AnatomicalRegion) : PainMapUiAction
+
+    // Persistent Session & Follow-Up Q&A Actions
+    data class SendFollowUpQuestion(val question: String) : PainMapUiAction
+    data class LoadSession(val sessionId: String, val onLoaded: () -> Unit = {}) : PainMapUiAction
+    data class DeleteSession(val sessionId: String) : PainMapUiAction
 }

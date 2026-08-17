@@ -1,11 +1,11 @@
-# Active Task: TASK-014
-- **Persona:** [UI Engineer]
-- **Goal:** Implement Zoom-To-Point Focus, Zoom-Invariant Precision Brush Sizing, and Continuous Drag Stroke Painting.
+# Active Task: TASK-016
+- **Persona:** [Full-Stack Android Engineer]
+- **Goal:** Implement Persistent Storage for 3D Body Maps & AI Triage Assessments, and Interactive Gemini 3.7 Flash Follow-Up Q&A Chat.
 - **Inputs:** `docs/1_PRD.md`, `docs/2_ARCHITECTURE.md`, `docs/3_STATE.md`, `docs/4_CONVENTIONS.md`, `implementation_plan.md`
-- **Constraints:** Pinch-to-point focal centering, double-tap zoom focus, zoom-invariant brush radius, continuous drag stroke painting at 60fps, MVVM + UDF invariants, continuous device screenshots.
+- **Constraints:** Atomic persistent storage surviving app restarts, multi-turn clinical follow-up Q&A with `gemini-3.7-flash`, MVVM + UDF invariants, continuous device screenshots.
 - **Acceptance Criteria:**
-  - [ ] Pinch-to-zoom centers on touched body part; double-tap focuses on tapped region
-  - [ ] Zooming in scales down brush radius for micro-precise pinpoint painting
-  - [ ] Continuous drag stroke painting draws connected radiating lines across multiple sections
+  - [ ] Marked pain points, intensities, and triage reports persist across app kills and restarts
+  - [ ] Patients can ask follow-up questions to Gemini 3.7 Flash with full session context
+  - [ ] Dashboard shows list of recent assessment sessions with 1-tap re-opening
   - [ ] All unit tests pass with zero errors via `[QA & Reviewer]` subagent
   - [ ] Live device screenshots captured and verified

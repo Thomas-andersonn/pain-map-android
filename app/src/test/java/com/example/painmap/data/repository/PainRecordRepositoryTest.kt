@@ -1,12 +1,16 @@
 package com.example.painmap.data.repository
 
 import com.example.painmap.domain.model.AnatomicalRegion
+import com.example.painmap.domain.model.ChatMessage
+import com.example.painmap.domain.model.MessageSender
+import com.example.painmap.domain.model.PainAssessmentSession
 import com.example.painmap.domain.model.PainDuration
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.domain.model.PainType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -80,5 +84,50 @@ class PainRecordRepositoryTest {
 
         repository.clearActivePainPoints()
         assertTrue(repository.getActivePainPoints().first().isEmpty())
+    }
+
+    @Test
+    fun saveSession_persistsAndRetrievesSession() = runBlocking {
+        val point = PainPoint(region = AnatomicalRegion.HIP_RIGHT, intensity = 7)
+        val session = PainAssessmentSession(
+            id = "session-test-1",
+            painPoints = listOf(point)
+        )
+
+        repository.saveSession(session)
+
+        val sessions = repository.getAllSessions().first()
+        assertEquals(1, sessions.size)
+        assertEquals("session-test-1", sessions[0].id)
+
+        val retrieved = repository.getSessionById("session-test-1").getOrNull()
+        assertNotNull(retrieved)
+        assertEquals(1, retrieved?.painPoints?.size)
+    }
+
+    @Test
+    fun appendChatMessage_addsMessageToSession() = runBlocking {
+        val session = PainAssessmentSession(id = "session-chat-1")
+        repository.saveSession(session)
+
+        val chatMessage = ChatMessage(
+            sender = MessageSender.USER,
+            message = "What exercises help with knee stiffness?"
+        )
+        repository.appendChatMessage("session-chat-1", chatMessage)
+
+        val retrieved = repository.getSessionById("session-chat-1").getOrNull()
+        assertEquals(1, retrieved?.chatHistory?.size)
+        assertEquals("What exercises help with knee stiffness?", retrieved?.chatHistory?.get(0)?.message)
+    }
+
+    @Test
+    fun deleteSession_removesSessionFromList() = runBlocking {
+        val session = PainAssessmentSession(id = "session-del-1")
+        repository.saveSession(session)
+        assertEquals(1, repository.getAllSessions().first().size)
+
+        repository.deleteSession("session-del-1")
+        assertEquals(0, repository.getAllSessions().first().size)
     }
 }

@@ -10,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.painmap.ui.screens.MainDashboardScreen
 import com.example.painmap.ui.screens.painmap.PainMapScreen
+import com.example.painmap.ui.screens.painmap.PainMapUiAction
 import com.example.painmap.ui.screens.painmap.PainMapViewModel
 import com.example.painmap.ui.screens.triage.TriageResultScreen
 
@@ -28,8 +29,19 @@ fun PainMapNavHost(
     ) {
         composable(PainMapRoute.Dashboard.route) {
             MainDashboardScreen(
+                sessionsList = uiState.sessionsList,
                 onStartAssessment = {
                     navController.navigate(PainMapRoute.BodyMap.route)
+                },
+                onSelectSession = { sessionId ->
+                    viewModel.onAction(
+                        PainMapUiAction.LoadSession(
+                            sessionId = sessionId,
+                            onLoaded = {
+                                navController.navigate(PainMapRoute.TriageResult.route)
+                            }
+                        )
+                    )
                 }
             )
         }
@@ -50,6 +62,11 @@ fun PainMapNavHost(
         composable(PainMapRoute.TriageResult.route) {
             TriageResultScreen(
                 report = uiState.latestTriageReport,
+                chatHistory = uiState.chatHistory,
+                isAskingFollowUp = uiState.isAskingFollowUp,
+                onSendFollowUp = { question ->
+                    viewModel.onAction(PainMapUiAction.SendFollowUpQuestion(question))
+                },
                 onNavigateBackToMap = {
                     navController.navigate(PainMapRoute.BodyMap.route) {
                         popUpTo(PainMapRoute.BodyMap.route) { inclusive = true }
