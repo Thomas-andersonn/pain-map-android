@@ -24,9 +24,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Healing
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ViewInAr
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -34,16 +36,20 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,8 +78,11 @@ fun MainDashboardScreen(
     sessionsList: List<PainAssessmentSession> = emptyList(),
     onStartAssessment: () -> Unit = {},
     onSelectSession: (String) -> Unit = {},
+    onDeleteSession: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    var sessionToDelete by remember { mutableStateOf<PainAssessmentSession?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -249,48 +258,56 @@ fun MainDashboardScreen(
                         Text(
                             text = "Record anatomical pain points and receive instant AI-powered symptom analysis, root-cause diagnosis, and interactive follow-up Q&A.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         Button(
                             onClick = onStartAssessment,
-                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = TealPrimary
-                            )
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(text = stringResource(R.string.start_assessment), fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                text = "Start AI Assessment",
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
                         }
                     }
                 }
             }
 
-            // Saved Assessment Sessions History
             if (sessionsList.isNotEmpty()) {
                 item {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = null,
-                            tint = TealPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Saved Assessment Sessions (${sessionsList.size})",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                tint = TealPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Saved Assessment Sessions (${sessionsList.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
-                items(sessionsList) { session ->
+                items(sessionsList, key = { it.id }) { session ->
                     OutlinedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelectSession(session.id) },
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surface
@@ -318,60 +335,84 @@ fun MainDashboardScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
 
-                                session.triageReport?.urgencyLevel?.let { urgency ->
-                                    val color = when (urgency) {
-                                        UrgencyLevel.HIGH -> SeverityHigh
-                                        UrgencyLevel.MODERATE -> SeverityMedium
-                                        UrgencyLevel.LOW -> SeverityLow
-                                        UrgencyLevel.ROUTINE -> TealPrimary
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    session.triageReport?.urgencyLevel?.let { urgency ->
+                                        val color = when (urgency) {
+                                            UrgencyLevel.HIGH -> SeverityHigh
+                                            UrgencyLevel.MODERATE -> SeverityMedium
+                                            UrgencyLevel.LOW -> SeverityLow
+                                            UrgencyLevel.ROUTINE -> TealPrimary
+                                        }
+                                        Text(
+                                            text = urgency.name,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = color,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(color.copy(alpha = 0.12f))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
                                     }
-                                    Text(
-                                        text = urgency.name,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = color,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(color.copy(alpha = 0.12f))
-                                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
+
+                                    IconButton(
+                                        onClick = { sessionToDelete = session },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DeleteOutline,
+                                            contentDescription = "Delete Session",
+                                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.75f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
 
-                            // Marked Regions
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            // Marked Regions (Clickable area to open report)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelectSession(session.id) },
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                session.painPoints.forEach { pt ->
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    session.painPoints.forEach { pt ->
+                                        Text(
+                                            text = "${pt.region.displayName} (${pt.intensity}/10)",
+                                            fontSize = 11.sp,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
-                                        text = "${pt.region.displayName} (${pt.intensity}/10)",
-                                        fontSize = 11.sp,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        text = if (session.chatHistory.isNotEmpty()) "${session.chatHistory.size} Q&A messages" else "View Report & Ask Questions",
+                                        fontSize = 12.sp,
+                                        color = TealPrimary,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = null,
+                                        tint = TealPrimary,
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = if (session.chatHistory.isNotEmpty()) "${session.chatHistory.size} Q&A messages" else "View Report & Ask Questions",
-                                    fontSize = 12.sp,
-                                    color = TealPrimary,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = TealPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
                             }
                         }
                     }
@@ -397,6 +438,41 @@ fun MainDashboardScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+
+    // Confirmation Dialog for Deleting Session
+    sessionToDelete?.let { session ->
+        val dateStr = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()).format(Date(session.timestamp))
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = {
+                Text(
+                    text = "Delete Assessment Session?",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text("Are you sure you want to permanently delete the clinical assessment from $dateStr? This action cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteSession(session.id)
+                        sessionToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

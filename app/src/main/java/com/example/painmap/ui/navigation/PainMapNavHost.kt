@@ -42,6 +42,9 @@ fun PainMapNavHost(
                             }
                         )
                     )
+                },
+                onDeleteSession = { sessionId ->
+                    viewModel.onAction(PainMapUiAction.DeleteSession(sessionId))
                 }
             )
         }
