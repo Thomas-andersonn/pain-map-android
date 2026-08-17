@@ -55,7 +55,15 @@ class PainMapViewModel(
             is PainMapUiAction.DismissError -> handleDismissError()
             is PainMapUiAction.SetToolMode -> handleSetToolMode(action.mode)
             is PainMapUiAction.SetBrushIntensity -> handleSetBrushIntensity(action.intensity)
-            is PainMapUiAction.PaintRegion -> handlePaintRegion(action.region, action.intensity)
+            is PainMapUiAction.PaintRegion -> handlePaintRegion(
+                action.region,
+                action.intensity,
+                action.uvX,
+                action.uvY,
+                action.x,
+                action.y,
+                action.z
+            )
             is PainMapUiAction.EraseRegion -> handleEraseRegion(action.region)
             is PainMapUiAction.SendFollowUpQuestion -> handleSendFollowUpQuestion(action.question)
             is PainMapUiAction.LoadSession -> handleLoadSession(action.sessionId, action.onLoaded)
@@ -139,15 +147,34 @@ class PainMapViewModel(
         _localUiState.update { it.copy(brushIntensity = intensity.coerceIn(1, 10)) }
     }
 
-    private fun handlePaintRegion(region: AnatomicalRegion, intensity: Int) {
+    private fun handlePaintRegion(
+        region: AnatomicalRegion,
+        intensity: Int,
+        uvX: Float? = null,
+        uvY: Float? = null,
+        x: Float? = null,
+        y: Float? = null,
+        z: Float? = null
+    ) {
         viewModelScope.launch {
             val existing = uiState.value.activePainPoints.find { it.region == region }
-            val pointToSave = existing?.copy(intensity = intensity)
-                ?: PainPoint(
-                    region = region,
-                    intensity = intensity,
-                    painTypes = setOf(PainType.ACHING)
-                )
+            val pointToSave = existing?.copy(
+                intensity = intensity,
+                uvX = uvX ?: existing.uvX,
+                uvY = uvY ?: existing.uvY,
+                x = x ?: existing.x,
+                y = y ?: existing.y,
+                z = z ?: existing.z
+            ) ?: PainPoint(
+                region = region,
+                intensity = intensity,
+                uvX = uvX,
+                uvY = uvY,
+                x = x ?: region.defaultX,
+                y = y ?: region.defaultY,
+                z = z ?: region.defaultZ,
+                painTypes = setOf(PainType.ACHING)
+            )
             painRecordRepository.savePainPoint(pointToSave)
         }
     }

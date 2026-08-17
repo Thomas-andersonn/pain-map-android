@@ -10,6 +10,8 @@ data class PainPoint(
     val x: Float = region.defaultX,
     val y: Float = region.defaultY,
     val z: Float = region.defaultZ,
+    val uvX: Float? = null,
+    val uvY: Float? = null,
     val intensity: Int = 5, // 1 to 10 scale
     val painTypes: Set<PainType> = setOf(PainType.ACHING),
     val duration: PainDuration = PainDuration.ACUTE,

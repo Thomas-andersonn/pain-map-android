@@ -269,8 +269,8 @@ fun PainMapScreen(
                 selectedRegion = uiState.selectedRegion,
                 toolMode = uiState.toolMode,
                 brushIntensity = uiState.brushIntensity,
-                onPaintRegion = { region, intensity ->
-                    onAction(PainMapUiAction.PaintRegion(region, intensity))
+                onPaintRegion = { region, intensity, uvX, uvY, x, y, z ->
+                    onAction(PainMapUiAction.PaintRegion(region, intensity, uvX, uvY, x, y, z))
                 },
                 onEraseRegion = { region ->
                     onAction(PainMapUiAction.EraseRegion(region))

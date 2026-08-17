@@ -68,8 +68,10 @@ fun PainMapNavHost(
                     viewModel.onAction(PainMapUiAction.SendFollowUpQuestion(question))
                 },
                 onNavigateBackToMap = {
-                    navController.navigate(PainMapRoute.BodyMap.route) {
-                        popUpTo(PainMapRoute.BodyMap.route) { inclusive = true }
+                    if (navController.previousBackStackEntry?.destination?.route == PainMapRoute.BodyMap.route) {
+                        navController.popBackStack()
+                    } else {
+                        navController.navigate(PainMapRoute.BodyMap.route)
                     }
                 },
                 onNavigateToDashboard = {

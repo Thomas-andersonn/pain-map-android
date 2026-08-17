@@ -57,9 +57,12 @@ import com.example.painmap.domain.model.AnatomicalRegion
 import com.example.painmap.domain.model.PainPoint
 import com.example.painmap.ui.theme.TealLight
 import com.example.painmap.ui.theme.TealPrimary
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Precision 3D Anatomical Pain Mapper with:
+ * - Persistent Restored Painted Spots & Body Map Synchronization
  * - Pinch-To-Point Focal Centering & Double-Tap to Focus
  * - Dynamic Zoom-Invariant Precision Brush
  * - Continuous Drag Stroke Painting for Radiating Pain Bands
@@ -70,7 +73,7 @@ fun Anatomical3DViewer(
     selectedRegion: AnatomicalRegion?,
     toolMode: PaintToolMode,
     brushIntensity: Int,
-    onPaintRegion: (AnatomicalRegion, Int) -> Unit,
+    onPaintRegion: (AnatomicalRegion, Int, Float?, Float?, Float?, Float?, Float?) -> Unit,
     onEraseRegion: (AnatomicalRegion) -> Unit,
     onSelectRegion: (AnatomicalRegion) -> Unit,
     modifier: Modifier = Modifier
@@ -78,6 +81,7 @@ fun Anatomical3DViewer(
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var currentPreset by remember { mutableStateOf("front") }
     var currentInteractionMode by remember { mutableStateOf("ORBIT") } // "ORBIT" or "STROKE"
+    var isModelReady by remember { mutableStateOf(false) }
 
     // Sync interaction mode with 3D engine
     LaunchedEffect(currentInteractionMode) {
@@ -87,6 +91,32 @@ fun Anatomical3DViewer(
     // Sync brush intensity with 3D engine
     LaunchedEffect(brushIntensity) {
         webViewRef?.evaluateJavascript("if (window.setBrushIntensity) window.setBrushIntensity($brushIntensity);", null)
+    }
+
+    // Sync & Restore active pain points onto the 3D canvas
+    LaunchedEffect(activePainPoints, isModelReady, webViewRef) {
+        if (isModelReady && webViewRef != null) {
+            if (activePainPoints.isEmpty()) {
+                webViewRef?.evaluateJavascript("if (window.clearAllPaint) window.clearAllPaint();", null)
+            } else {
+                val jsonArray = JSONArray().apply {
+                    activePainPoints.forEach { pt ->
+                        put(JSONObject().apply {
+                            put("id", pt.id)
+                            put("region", pt.region.name)
+                            put("intensity", pt.intensity)
+                            put("x", pt.x)
+                            put("y", pt.y)
+                            put("z", pt.z)
+                            pt.uvX?.let { put("uvX", it) }
+                            pt.uvY?.let { put("uvY", it) }
+                        })
+                    }
+                }
+                val escapedJson = jsonArray.toString()
+                webViewRef?.evaluateJavascript("if (window.restorePaintedPoints) window.restorePaintedPoints($escapedJson);", null)
+            }
+        }
     }
 
     Surface(
@@ -236,10 +266,10 @@ fun Anatomical3DViewer(
                     factory = { ctx ->
                         create3DWebView(
                             context = ctx,
-                            onPaint = { regionName, intensity ->
+                            onPaint = { regionName, intensity, uvX, uvY, x, y, z ->
                                 val region = runCatching { AnatomicalRegion.valueOf(regionName) }.getOrNull()
                                 if (region != null) {
-                                    onPaintRegion(region, intensity)
+                                    onPaintRegion(region, intensity, uvX, uvY, x, y, z)
                                 }
                             },
                             onErase = { regionName ->
@@ -253,6 +283,9 @@ fun Anatomical3DViewer(
                                 if (region != null) {
                                     onSelectRegion(region)
                                 }
+                            },
+                            onReady = {
+                                isModelReady = true
                             }
                         ).also { webViewRef = it }
                     },
@@ -284,9 +317,10 @@ private fun QuickFocusChip(
 @SuppressLint("SetJavaScriptEnabled")
 private fun create3DWebView(
     context: Context,
-    onPaint: (String, Int) -> Unit,
+    onPaint: (String, Int, Float?, Float?, Float?, Float?, Float?) -> Unit,
     onErase: (String) -> Unit,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    onReady: () -> Unit
 ): WebView {
     val assetLoader = WebViewAssetLoader.Builder()
         .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -317,26 +351,53 @@ private fun create3DWebView(
                 val uri = request?.url ?: return null
                 return assetLoader.shouldInterceptRequest(uri)
             }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                view?.evaluateJavascript("if (bodyMesh) window.AndroidBridge.onModelReady();", null)
+            }
         }
-        addJavascriptInterface(
-            object {
-                @JavascriptInterface
-                fun onMeshPainted(region: String, intensity: Int) {
-                    post { onPaint(region, intensity) }
-                }
 
-                @JavascriptInterface
-                fun onMeshErased(region: String) {
-                    post { onErase(region) }
+        addJavascriptInterface(object {
+            @JavascriptInterface
+            fun onMeshPainted(
+                regionName: String,
+                intensity: Int,
+                uvX: Double,
+                uvY: Double,
+                x: Double,
+                y: Double,
+                z: Double
+            ) {
+                post {
+                    onPaint(
+                        regionName,
+                        intensity,
+                        uvX.toFloat(),
+                        uvY.toFloat(),
+                        x.toFloat(),
+                        y.toFloat(),
+                        z.toFloat()
+                    )
                 }
+            }
 
-                @JavascriptInterface
-                fun onMeshSelected(region: String) {
-                    post { onSelect(region) }
-                }
-            },
-            "AndroidBridge"
-        )
+            @JavascriptInterface
+            fun onMeshErased(regionName: String) {
+                post { onErase(regionName) }
+            }
+
+            @JavascriptInterface
+            fun onMeshSelected(regionName: String) {
+                post { onSelect(regionName) }
+            }
+
+            @JavascriptInterface
+            fun onModelReady() {
+                post { onReady() }
+            }
+        }, "AndroidBridge")
+
         loadUrl("https://appassets.androidplatform.net/assets/viewer3d/index.html")
     }
 }
